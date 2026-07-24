@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Check In — Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #EAF0EE;
+    --panel: #FFFFFF;
+    --ink: #1F2933;
+    --ink-soft: #52616B;
+    --red: #D7263D;
+    --red-dark: #A81C2F;
+    --red-shadow: #7A1220;
+    --teal: #2F6F6D;
+    --amber: #C97A1D;
+    --amber-bg: #FBF0DE;
+    --line: #D5DEDB;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Atkinson Hyperlegible', sans-serif;
+    min-height: 100vh;
+  }
+  .app {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px 8px;
+  }
+  .brand {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+  .gear-btn {
+    background: var(--panel);
+    border: 2px solid var(--line);
+    border-radius: 14px;
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 24px;
+    color: var(--ink-soft);
+  }
+  .gear-btn:focus-visible, button:focus-visible, .contact-row button:focus-visible {
+    outline: 3px solid var(--teal);
+    outline-offset: 2px;
+  }
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 24px 40px;
+  }
+  .screen { width: 100%; display: none; flex-direction: column; align-items: center; }
+  .screen.active { display: flex; }
+
+  .status-line {
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 18px;
+    margin: 6px 0 28px;
+    min-height: 26px;
+  }
+
+  .button-wrap {
+    position: relative;
+    width: 260px;
+    height: 260px;
+    margin: 20px 0 32px;
+  }
+  .big-button {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: none;
+    background: radial-gradient(circle at 35% 30%, #ef4e5f, var(--red) 55%, var(--red-dark) 100%);
+    box-shadow:
+      0 14px 0 var(--red-shadow),
+      0 18px 24px rgba(0,0,0,0.25),
+      inset 0 -6px 12px rgba(0,0,0,0.15);
+    color: white;
+    font-size: 32px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
+    letter-spacing: 0.5px;
+  }
+  .big-button:active, .big-button.pressed {
+    transform: translateY(10px);
+    box-shadow:
+      0 4px 0 var(--red-shadow),
+      0 6px 10px rgba(0,0,0,0.2),
+      inset 0 -6px 12px rgba(0,0,0,0.2);
+  }
+  .big-button:disabled { cursor: default; }
+
+  .ripple {
+    position: absolute;
+    inset: -14px;
+    border-radius: 50%;
+    border: 4px solid var(--red);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .ripple.animate {
+    animation: ripple-out 0.9s ease-out;
+  }
+  @keyframes ripple-out {
+    0% { opacity: 0.6; transform: scale(0.9); }
+    100% { opacity: 0; transform: scale(1.25); }
+  }
+
+  .confirm-card {
+    width: 100%;
+    background: var(--amber-bg);
+    border: 2px solid var(--amber);
+    border-radius: 18px;
+    padding: 20px 22px;
+    text-align: center;
+    display: none;
+  }
+  .confirm-card.show { display: block; }
+  .confirm-card .headline { font-size: 20px; font-weight: 700; color: var(--amber); margin-bottom: 4px; }
+  .confirm-card .sub { color: var(--ink-soft); font-size: 16px; }
+
+  .instructions {
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 17px;
+    max-width: 320px;
+    line-height: 1.5;
+  }
+
+  /* Contacts screen */
+  .screen-title { font-size: 24px; font-weight: 700; margin-bottom: 4px; align-self: flex-start; }
+  .screen-sub { color: var(--ink-soft); font-size: 16px; margin-bottom: 20px; align-self: flex-start; }
+  .contact-list { width: 100%; display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+  .contact-row {
+    background: var(--panel);
+    border: 2px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .contact-info .name { font-weight: 700; font-size: 17px; }
+  .contact-info .phone { color: var(--ink-soft); font-size: 15px; }
+  .remove-btn {
+    background: none;
+    border: 2px solid var(--line);
+    color: var(--ink-soft);
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 15px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .add-contact-btn {
+    width: 100%;
+    background: var(--panel);
+    border: 2px dashed var(--teal);
+    color: var(--teal);
+    border-radius: 14px;
+    padding: 16px;
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .add-contact-btn:disabled {
+    opacity: 0.5;
+    border-style: solid;
+    cursor: default;
+  }
+  .back-btn {
+    align-self: flex-start;
+    background: none;
+    border: none;
+    color: var(--teal);
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    margin-bottom: 16px;
+    padding: 8px 0;
+  }
+
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(31,41,51,0.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 10;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--panel);
+    border-radius: 18px;
+    padding: 24px;
+    width: 100%;
+    max-width: 380px;
+  }
+  .modal h3 { margin: 0 0 16px; font-size: 20px; }
+  .modal label { display: block; font-size: 15px; color: var(--ink-soft); margin-bottom: 6px; margin-top: 14px; }
+  .modal input {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 17px;
+    border: 2px solid var(--line);
+    border-radius: 10px;
+    font-family: inherit;
+  }
+  .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
+  .modal-actions button {
+    flex: 1;
+    padding: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: inherit;
+    border: none;
+  }
+  .modal-actions .cancel { background: var(--bg); color: var(--ink-soft); }
+  .modal-actions .save { background: var(--teal); color: white; }
+
+  footer {
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 13px;
+    padding: 12px 24px 4px;
+    opacity: 0.7;
+  }
+
+  .reminder-card {
+    width: 100%;
+    background: var(--panel);
+    border: 2px solid var(--line);
+    border-radius: 16px;
+    padding: 16px 18px;
+    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .reminder-card.overdue {
+    border-color: var(--amber);
+    background: var(--amber-bg);
+  }
+  .reminder-label { font-size: 14px; color: var(--ink-soft); margin-bottom: 2px; }
+  .reminder-time { font-size: 20px; font-weight: 700; }
+  .reminder-card.overdue .reminder-time { color: var(--amber); }
+  .edit-time-btn {
+    background: var(--bg);
+    border: 2px solid var(--line);
+    color: var(--ink);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .overdue-banner {
+    display: none;
+    width: 100%;
+    background: var(--amber);
+    color: white;
+    text-align: center;
+    font-weight: 700;
+    font-size: 15px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+  .overdue-banner.show { display: block; }
+
+  .share-section {
+    width: 100%;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+  }
+  .share-title { font-size: 15px; font-weight: 700; color: var(--ink-soft); margin-bottom: 10px; text-align: center; }
+  .share-buttons { display: flex; gap: 10px; }
+  .share-btn {
+    flex: 1;
+    text-align: center;
+    background: var(--panel);
+    border: 2px solid var(--line);
+    color: var(--teal);
+    border-radius: 12px;
+    padding: 12px 8px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    text-decoration: none;
+    display: block;
+  }
+  .home-screen-steps {
+    display: none;
+    font-size: 14px;
+    color: var(--ink-soft);
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-top: 10px;
+    line-height: 1.5;
+  }
+  .home-screen-steps.show { display: block; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">The Check In</div>
+    <button class="gear-btn" id="settingsBtn" aria-label="Manage contacts">&#9881;</button>
+  </header>
+
+  <main>
+    <!-- Home screen -->
+    <div class="screen active" id="homeScreen">
+      <div class="overdue-banner" id="overdueBanner">It's past your check-in time</div>
+      <div class="status-line" id="statusLine">Press the button to let your people know you're okay.</div>
+
+      <div class="button-wrap">
+        <div class="ripple" id="ripple"></div>
+        <button class="big-button" id="pressBtn">I'M&nbsp;OK</button>
+      </div>
+
+      <div class="confirm-card" id="confirmCard">
+        <div class="headline" id="confirmHeadline">Sent!</div>
+        <div class="sub" id="confirmSub"></div>
+      </div>
+
+      <p class="instructions" id="instructions">One press sends a message to the people you've chosen below. No apps to open, nothing else to remember.</p>
+
+      <div class="reminder-card" id="reminderCard">
+        <div>
+          <div class="reminder-label">Daily check-in time</div>
+          <div class="reminder-time" id="reminderTimeDisplay">9:00 AM</div>
+        </div>
+        <button class="edit-time-btn" id="editTimeBtn">Change</button>
+      </div>
+
+      <div class="share-section">
+        <div class="share-title">Get this on your phone</div>
+        <div class="share-buttons">
+          <a href="#" class="share-btn" id="textLinkBtn">Text me the link</a>
+          <button class="share-btn" id="homeScreenBtn">Add to Home Screen</button>
+        </div>
+        <div class="home-screen-steps" id="homeScreenSteps">
+          On an iPhone: tap the <strong>Share</strong> icon in Safari, then <strong>Add to Home Screen</strong>. On Android: tap the <strong>&#8942;</strong> menu in Chrome, then <strong>Add to Home screen</strong>. It'll sit on the phone like any other app icon — no App Store needed.
+        </div>
+      </div>
+    </div>
+
+    <!-- Contacts screen -->
+    <div class="screen" id="contactsScreen">
+      <button class="back-btn" id="backBtn">&larr; Back</button>
+      <div class="screen-title">Who gets notified</div>
+      <div class="screen-sub">Choose up to 5 people to receive your check-in.</div>
+      <div class="contact-list" id="contactList"></div>
+      <button class="add-contact-btn" id="addContactBtn">+ Add a person</button>
+    </div>
+  </main>
+
+  <footer>Prototype — no messages are actually sent</footer>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3>Add someone to notify</h3>
+    <label for="nameInput">Name</label>
+    <input type="text" id="nameInput" placeholder="e.g. Barb">
+    <label for="phoneInput">Phone number</label>
+    <input type="tel" id="phoneInput" placeholder="e.g. (765) 555-0100">
+    <div class="modal-actions">
+      <button class="cancel" id="cancelModal">Cancel</button>
+      <button class="save" id="saveModal">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="timeModalOverlay">
+  <div class="modal">
+    <h3>Set daily check-in time</h3>
+    <label for="timeInput">What time should the reminder be?</label>
+    <input type="time" id="timeInput">
+    <div class="modal-actions">
+      <button class="cancel" id="cancelTimeModal">Cancel</button>
+      <button class="save" id="saveTimeModal">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let contacts = [
+    { name: "Barb", phone: "(765) 555-0142" },
+    { name: "Addie", phone: "(765) 555-0187" }
+  ];
+
+  const homeScreen = document.getElementById('homeScreen');
+  const contactsScreen = document.getElementById('contactsScreen');
+  const settingsBtn = document.getElementById('settingsBtn');
+  const backBtn = document.getElementById('backBtn');
+  const pressBtn = document.getElementById('pressBtn');
+  const ripple = document.getElementById('ripple');
+  const confirmCard = document.getElementById('confirmCard');
+  const confirmHeadline = document.getElementById('confirmHeadline');
+  const confirmSub = document.getElementById('confirmSub');
+  const statusLine = document.getElementById('statusLine');
+  const instructions = document.getElementById('instructions');
+  const contactList = document.getElementById('contactList');
+  const addContactBtn = document.getElementById('addContactBtn');
+  const modalOverlay = document.getElementById('modalOverlay');
+  const nameInput = document.getElementById('nameInput');
+  const phoneInput = document.getElementById('phoneInput');
+  const cancelModal = document.getElementById('cancelModal');
+  const saveModal = document.getElementById('saveModal');
+
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  settingsBtn.addEventListener('click', () => { renderContacts(); showScreen('contactsScreen'); });
+  backBtn.addEventListener('click', () => showScreen('homeScreen'));
+
+  function renderContacts() {
+    contactList.innerHTML = '';
+    contacts.forEach((c, i) => {
+      const row = document.createElement('div');
+      row.className = 'contact-row';
+      row.innerHTML = `
+        <div class="contact-info">
+          <div class="name">${c.name}</div>
+          <div class="phone">${c.phone}</div>
+        </div>
+        <button class="remove-btn" data-i="${i}">Remove</button>
+      `;
+      contactList.appendChild(row);
+    });
+    contactList.querySelectorAll('.remove-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        contacts.splice(Number(btn.dataset.i), 1);
+        renderContacts();
+      });
+    });
+    addContactBtn.disabled = contacts.length >= 5;
+    addContactBtn.textContent = contacts.length >= 5 ? "You've reached the limit of 5" : "+ Add a person";
+  }
+
+  addContactBtn.addEventListener('click', () => {
+    if (contacts.length >= 5) return;
+    nameInput.value = '';
+    phoneInput.value = '';
+    modalOverlay.classList.add('show');
+    nameInput.focus();
+  });
+  cancelModal.addEventListener('click', () => modalOverlay.classList.remove('show'));
+  saveModal.addEventListener('click', () => {
+    const name = nameInput.value.trim();
+    const phone = phoneInput.value.trim();
+    if (!name || !phone) return;
+    contacts.push({ name, phone });
+    modalOverlay.classList.remove('show');
+    renderContacts();
+  });
+
+  let checkedInToday = false;
+
+  pressBtn.addEventListener('click', async () => {
+    if (contacts.length === 0) {
+      statusLine.textContent = "Add at least one person before checking in.";
+      return;
+    }
+    pressBtn.classList.add('pressed');
+    ripple.classList.remove('animate'); void ripple.offsetWidth; ripple.classList.add('animate');
+    setTimeout(() => pressBtn.classList.remove('pressed'), 200);
+    pressBtn.disabled = true;
+
+    const now = new Date();
+    const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const names = contacts.map(c => c.name).join(', ');
+
+    confirmHeadline.textContent = "Sending\u2026";
+    confirmSub.textContent = `Letting ${names} know you're okay.`;
+    confirmCard.classList.add('show');
+    instructions.style.visibility = 'hidden';
+
+    try {
+      const res = await fetch('/.netlify/functions/send-checkin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contacts }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        checkedInToday = true;
+        overdueBanner.classList.remove('show');
+        reminderCard.classList.remove('overdue');
+        confirmHeadline.textContent = "Sent!";
+        confirmSub.textContent = `${names} ${contacts.length > 1 ? 'have' : 'has'} been notified. (${time})`;
+      } else {
+        const failed = (data.results || []).filter(r => !r.success).map(r => r.name);
+        confirmHeadline.textContent = "Some messages didn't send";
+        confirmSub.textContent = failed.length
+          ? `Couldn't reach: ${failed.join(', ')}. Check their numbers and try again.`
+          : "Something went wrong. Try again in a moment.";
+      }
+    } catch (err) {
+      confirmHeadline.textContent = "Couldn't send";
+      confirmSub.textContent = "Check your connection and try again.";
+    } finally {
+      pressBtn.disabled = false;
+    }
+  });
+
+  // --- Daily check-in time ---
+  const reminderCard = document.getElementById('reminderCard');
+  const reminderTimeDisplay = document.getElementById('reminderTimeDisplay');
+  const overdueBanner = document.getElementById('overdueBanner');
+  const editTimeBtn = document.getElementById('editTimeBtn');
+  const timeModalOverlay = document.getElementById('timeModalOverlay');
+  const timeInput = document.getElementById('timeInput');
+  const cancelTimeModal = document.getElementById('cancelTimeModal');
+  const saveTimeModal = document.getElementById('saveTimeModal');
+
+  let checkInHour = 9, checkInMinute = 0;
+
+  function formatTime(h, m) {
+    const period = h >= 12 ? 'PM' : 'AM';
+    const h12 = ((h % 12) || 12);
+    return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+  }
+
+  function renderReminder() {
+    reminderTimeDisplay.textContent = formatTime(checkInHour, checkInMinute);
+    const now = new Date();
+    const isOverdue = !checkedInToday &&
+      (now.getHours() > checkInHour || (now.getHours() === checkInHour && now.getMinutes() >= checkInMinute));
+    overdueBanner.classList.toggle('show', isOverdue);
+    reminderCard.classList.toggle('overdue', isOverdue);
+  }
+
+  editTimeBtn.addEventListener('click', () => {
+    timeInput.value = `${String(checkInHour).padStart(2, '0')}:${String(checkInMinute).padStart(2, '0')}`;
+    timeModalOverlay.classList.add('show');
+  });
+  cancelTimeModal.addEventListener('click', () => timeModalOverlay.classList.remove('show'));
+  saveTimeModal.addEventListener('click', () => {
+    if (!timeInput.value) return;
+    const [h, m] = timeInput.value.split(':').map(Number);
+    checkInHour = h; checkInMinute = m;
+    timeModalOverlay.classList.remove('show');
+    renderReminder();
+  });
+
+  renderReminder();
+  setInterval(renderReminder, 30000);
+
+  // --- Get this on your phone ---
+  const textLinkBtn = document.getElementById('textLinkBtn');
+  const homeScreenBtn = document.getElementById('homeScreenBtn');
+  const homeScreenSteps = document.getElementById('homeScreenSteps');
+
+  textLinkBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    const url = window.location.href.split('?')[0];
+    const body = encodeURIComponent(`Here's The Check In — press it once a day so we know you're okay: ${url}`);
+    window.location.href = `sms:&body=${body}`;
+  });
+
+  homeScreenBtn.addEventListener('click', () => {
+    homeScreenSteps.classList.toggle('show');
+  });
+</script>
+</body>
+</html>
