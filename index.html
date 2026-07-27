@@ -400,6 +400,10 @@
     <input type="text" id="nameInput" placeholder="e.g. Barb">
     <label for="phoneInput">Phone number</label>
     <input type="tel" id="phoneInput" placeholder="e.g. (765) 555-0100">
+    <label style="display:flex; align-items:flex-start; gap:8px; margin-top:16px; font-size:14px;">
+        <input type="checkbox" id="consentCheck" style="margin-top:3px;">
+        <span>I confirm this person has agreed to receive SMS check-in notifications, and will get a one-time text to confirm before any check-ins are sent.</span>
+      </label>
     <div class="modal-actions">
       <button class="cancel" id="cancelModal">Cancel</button>
       <button class="save" id="saveModal">Save</button>
@@ -487,7 +491,8 @@
   saveModal.addEventListener('click', () => {
     const name = nameInput.value.trim();
     const phone = phoneInput.value.trim();
-    if (!name || !phone) return;
+    const consented = document.getElementById('consentCheck').checked;
+    if (!name || !phone || !consented) return;
     contacts.push({ name, phone });
     modalOverlay.classList.remove('show');
     renderContacts();
