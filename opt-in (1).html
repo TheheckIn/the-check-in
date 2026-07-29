@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Check In — SMS Opt-In & Consent Verification</title>
+<style>
+  :root {
+    --ink: #1c1c1c;
+    --paper: #fbfaf7;
+    --line: #ddd8cf;
+    --accent: #b5432f;
+    --muted: #6b6558;
+    --sms-bg: #e8f4e6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+  }
+  header {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 20px;
+    margin-bottom: 36px;
+  }
+  header .label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  h1 {
+    font-size: 28px;
+    margin: 8px 0 4px;
+  }
+  header p {
+    color: var(--muted);
+    margin: 0;
+    font-size: 15px;
+  }
+  section {
+    margin-bottom: 40px;
+  }
+  h2 {
+    font-size: 18px;
+    border-left: 4px solid var(--accent);
+    padding-left: 12px;
+    margin-bottom: 14px;
+  }
+  .step-list {
+    counter-reset: step;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .step-list li {
+    counter-increment: step;
+    position: relative;
+    padding: 14px 0 14px 44px;
+    border-bottom: 1px solid var(--line);
+  }
+  .step-list li:last-child { border-bottom: none; }
+  .step-list li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 12px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--paper);
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .sms-mock {
+    background: var(--sms-bg);
+    border: 1px solid #c7dcc4;
+    border-radius: 14px;
+    padding: 14px 16px;
+    max-width: 380px;
+    font-size: 15px;
+    margin: 10px 0 6px;
+  }
+  .sms-meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .note {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    padding: 14px 16px;
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .badge {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+    background: rgba(181,67,47,0.08);
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-bottom: 10px;
+  }
+  a { color: var(--accent); }
+  footer {
+    border-top: 1px solid var(--line);
+    margin-top: 48px;
+    padding-top: 20px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  footer a { margin-right: 16px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  table td {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  table td:first-child {
+    color: var(--muted);
+    width: 170px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="label">The Check In — Opt-In Documentation</div>
+    <h1>How end users consent to SMS alerts</h1>
+    <p>This page documents the messaging opt-in flow for carrier / A2P 10DLC review. It exists for verification purposes and is publicly viewable — no login required.</p>
+  </header>
+
+  <section>
+    <span class="badge">Opt-in method</span>
+    <h2>Contact added by app owner → SMS confirmation request</h2>
+    <p>The Check In lets a user (the "app owner") name up to five people who should be notified when they check in daily. When the app owner adds a new contact's phone number, that number does <strong>not</strong> start receiving messages automatically. Instead, our system sends a single one-time SMS asking the contact to actively confirm.</p>
+
+    <ol class="step-list">
+      <li>App owner enters a contact's name and phone number inside The Check In app.</li>
+      <li>Our system sends that phone number a one-time SMS, shown below, asking them to reply to opt in. No recurring messages are sent yet.</li>
+      <li>The contact must reply <strong>YES</strong> of their own accord. This is an unchecked, opt-in-by-reply flow — consent is never assumed or pre-selected on the contact's behalf.</li>
+      <li>Only after a YES reply is logged does that number become active in the app owner's check-in notification list.</li>
+      <li>If the contact does not reply, or replies with anything other than YES, no further messages are sent to that number.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Exact message sent at opt-in</h2>
+    <div class="sms-meta">SMS · sent once per newly added contact</div>
+    <div class="sms-mock">
+      Reply YES to confirm you'll receive daily check-in alerts from [App Owner Name] via The Check In.
+    </div>
+    <p style="font-size:14px; color:var(--muted);">[App Owner Name] is dynamically replaced with the name of the person who added the contact.</p>
+  </section>
+
+  <section>
+    <h2>Ongoing messages after opt-in</h2>
+    <p>Once a contact has replied YES, they'll receive a short SMS notification only when the app owner presses their daily check-in button. Example:</p>
+    <div class="sms-mock">
+      [App Owner Name] just checked in and is okay. — The Check In
+    </div>
+  </section>
+
+  <section>
+    <h2>Opt-out</h2>
+    <p>Any contact can reply <strong>STOP</strong> at any time to stop receiving messages, and <strong>HELP</strong> for assistance, consistent with standard carrier requirements.</p>
+  </section>
+
+  <section>
+    <h2>Compliance references</h2>
+    <div class="note">
+      <table>
+        <tr><td>Privacy Policy</td><td><a href="/privacy">/privacy</a></td></tr>
+        <tr><td>Terms &amp; Conditions</td><td><a href="/terms">/terms</a></td></tr>
+        <tr><td>Message frequency</td><td>1 confirmation SMS per new contact, plus 1 SMS per daily check-in</td></tr>
+        <tr><td>Message &amp; data rates</td><td>May apply, disclosed in Terms</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <a href="/privacy">Privacy Policy</a>
+    <a href="/terms">Terms &amp; Conditions</a>
+    <span>The Check In</span>
+  </footer>
+
+</div>
+</body>
+</html>
