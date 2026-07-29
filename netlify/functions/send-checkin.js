@@ -4,13 +4,14 @@
 // Expects a POST body like:
 // { "contacts": [{ "name": "Barb", "phone": "+17655550142" }, ...] }
 
+const MAX_CONTACTS = 5;
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
   const { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER } = process.env;
-
   if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_PHONE_NUMBER) {
     return {
       statusCode: 500,
@@ -25,13 +26,17 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON body.' }) };
   }
 
-  const contacts = Array.isArray(payload.contacts) ? payload.contacts : [];
+  let contacts = Array.isArray(payload.contacts) ? payload.contacts : [];
   if (contacts.length === 0) {
     return { statusCode: 400, body: JSON.stringify({ error: 'No contacts provided.' }) };
   }
 
-  const message = payload.message || "This is my daily check-in from The Check In app — I'm okay!";
+  // Server-side cap — matches the product limit of 5, regardless of what the client sends.
+  if (contacts.length > MAX_CONTACTS) {
+    contacts = contacts.slice(0, MAX_CONTACTS);
+  }
 
+  const message = payload.message || "This is my daily check-in from The Check In app — I'm okay!";
   const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
   const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
 
@@ -41,14 +46,12 @@ exports.handler = async (event) => {
       if (!toNumber) {
         return { name: contact.name, phone: contact.phone, success: false, error: 'Invalid phone number.' };
       }
-
       try {
         const params = new URLSearchParams({
           To: toNumber,
           From: TWILIO_PHONE_NUMBER,
           Body: message,
         });
-
         const res = await fetch(url, {
           method: 'POST',
           headers: {
@@ -57,13 +60,10 @@ exports.handler = async (event) => {
           },
           body: params.toString(),
         });
-
         const data = await res.json();
-
         if (!res.ok) {
           return { name: contact.name, phone: toNumber, success: false, error: data.message || 'Twilio error.' };
         }
-
         return { name: contact.name, phone: toNumber, success: true, sid: data.sid };
       } catch (err) {
         return { name: contact.name, phone: toNumber, success: false, error: err.message };
@@ -72,9 +72,9 @@ exports.handler = async (event) => {
   );
 
   const allSucceeded = results.every((r) => r.success);
-
   return {
     statusCode: allSucceeded ? 200 : 207, // 207 = partial success
+    headers: { 'Access-Control-Allow-Origin': '*' },
     body: JSON.stringify({ results }),
   };
 };
@@ -87,3 +87,4 @@ function normalizePhone(raw) {
   if (digits.length === 10) return `+1${digits}`;
   if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
   return null;
+}
