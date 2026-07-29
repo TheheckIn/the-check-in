@@ -31,7 +31,6 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'No contacts provided.' }) };
   }
 
-  // Server-side cap — matches the product limit of 5, regardless of what the client sends.
   if (contacts.length > MAX_CONTACTS) {
     contacts = contacts.slice(0, MAX_CONTACTS);
   }
