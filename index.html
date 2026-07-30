@@ -424,10 +424,18 @@
 </div>
 
 <script>
-  let contacts = [
-    { name: "Barb", phone: "(765) 555-0142" },
-    { name: "Addie", phone: "(765) 555-0187" }
-  ];
+  // --- User identity (ties each phone/browser to its saved data) ---
+  function getUserId() {
+    let id = localStorage.getItem('checkinUserId');
+    if (!id) {
+      id = (crypto.randomUUID ? crypto.randomUUID() : 'u-' + Date.now() + '-' + Math.random().toString(16).slice(2));
+      localStorage.setItem('checkinUserId', id);
+    }
+    return id;
+  }
+  const userId = getUserId();
+
+  let contacts = [];
 
   const homeScreen = document.getElementById('homeScreen');
   const contactsScreen = document.getElementById('contactsScreen');
@@ -447,6 +455,34 @@
   const phoneInput = document.getElementById('phoneInput');
   const cancelModal = document.getElementById('cancelModal');
   const saveModal = document.getElementById('saveModal');
+
+  // --- Save/load from server storage ---
+  async function saveUserData() {
+    try {
+      await fetch(`/.netlify/functions/user-data?userId=${encodeURIComponent(userId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contacts, checkInHour, checkInMinute }),
+      });
+    } catch (err) {
+      console.error('Save failed', err);
+    }
+  }
+
+  async function loadUserData() {
+    try {
+      const res = await fetch(`/.netlify/functions/user-data?userId=${encodeURIComponent(userId)}`);
+      const data = await res.json();
+      contacts = data.contacts || [];
+      checkInHour = (typeof data.checkInHour === 'number') ? data.checkInHour : 9;
+      checkInMinute = (typeof data.checkInMinute === 'number') ? data.checkInMinute : 0;
+    } catch (err) {
+      console.error('Load failed', err);
+      contacts = [];
+    }
+    renderContacts();
+    renderReminder();
+  }
 
   function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -474,6 +510,7 @@
       btn.addEventListener('click', () => {
         contacts.splice(Number(btn.dataset.i), 1);
         renderContacts();
+        saveUserData();
       });
     });
     addContactBtn.disabled = contacts.length >= 5;
@@ -496,6 +533,7 @@
     contacts.push({ name, phone });
     modalOverlay.classList.remove('show');
     renderContacts();
+    saveUserData();
   });
 
   let checkedInToday = false;
@@ -586,9 +624,9 @@
     checkInHour = h; checkInMinute = m;
     timeModalOverlay.classList.remove('show');
     renderReminder();
+    saveUserData();
   });
 
-  renderReminder();
   setInterval(renderReminder, 30000);
 
   // --- Get this on your phone ---
@@ -606,6 +644,9 @@
   homeScreenBtn.addEventListener('click', () => {
     homeScreenSteps.classList.toggle('show');
   });
+
+  // Load this person's saved contacts and check-in time when the page opens
+  loadUserData();
 </script>
 </body>
 </html>
