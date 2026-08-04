@@ -85,14 +85,48 @@
     align-items: center;
     justify-content: center;
   }
-  .sms-mock {
+  .screenshot-frame {
+    max-width: 320px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    overflow: hidden;
+    margin: 10px 0 6px;
+  }
+  .screenshot-frame img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .screenshot-caption {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .preview-flag {
+    display: inline-block;
+    background: #fff4e5;
+    border: 1px solid #e8c07a;
+    color: #7a5300;
+    font-size: 13px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin: 10px 0 14px;
+  }
+  .sms-thread {
+    max-width: 380px;
+    margin: 10px 0 6px;
+  }
+  .sms-bubble {
     background: var(--sms-bg);
     border: 1px solid #c7dcc4;
     border-radius: 14px;
-    padding: 14px 16px;
-    max-width: 380px;
+    padding: 12px 14px;
     font-size: 15px;
-    margin: 10px 0 6px;
+    margin-bottom: 8px;
+  }
+  .sms-bubble.reply {
+    background: #eef1f7;
+    border-color: #c9cfe0;
+    margin-left: 60px;
   }
   .sms-meta {
     font-size: 12px;
@@ -159,8 +193,8 @@
     <p>The Check In lets a user (the "app owner") name up to five people who should be notified when they check in daily. When the app owner adds a new contact's phone number, that number does <strong>not</strong> start receiving messages automatically. Instead, our system sends a single one-time SMS asking the contact to actively confirm.</p>
 
     <ol class="step-list">
-      <li>App owner enters a contact's name and phone number inside The Check In app.</li>
-      <li>Our system sends that phone number a one-time SMS, shown below, asking them to reply to opt in. No recurring messages are sent yet.</li>
+      <li>App owner enters a contact's name and phone number inside The Check In app, shown below exactly as it appears in production.</li>
+      <li>Saving triggers a one-time SMS to that phone number, asking them to reply YES to opt in. No recurring messages are sent yet.</li>
       <li>The contact must reply <strong>YES</strong> of their own accord. This is an unchecked, opt-in-by-reply flow — consent is never assumed or pre-selected on the contact's behalf.</li>
       <li>Only after a YES reply is logged does that number become active in the app owner's check-in notification list.</li>
       <li>If the contact does not reply, or replies with anything other than YES, no further messages are sent to that number.</li>
@@ -168,33 +202,44 @@
   </section>
 
   <section>
-    <h2>Exact message sent at opt-in</h2>
-    <div class="sms-meta">SMS · sent once per newly added contact</div>
-    <div class="sms-mock">
-      Reply YES to confirm you'll receive daily check-in alerts from [App Owner Name] via The Check In.
+    <h2>Screenshot: the actual CTA screen</h2>
+    <div class="screenshot-frame">
+      <img src="/add_contact_screenshot.png" alt="The Check In app screen for adding a contact, showing name and phone number fields and the opt-in disclosure text">
     </div>
-    <p style="font-size:14px; color:var(--muted);">[App Owner Name] is dynamically replaced with the name of the person who added the contact.</p>
+    <p class="screenshot-caption">Live screenshot of helpful-squirrel-b651a9.netlify.app, taken August 4, 2026.</p>
+  </section>
+
+  <section>
+    <h2>Exact message sent at opt-in</h2>
+    <div class="preview-flag">This app's A2P 10DLC campaign is pending carrier approval, so live delivery is not yet active. The message below is the exact wording our system sends via the Twilio API once a contact is added — confirmed directly from Twilio's own message logs, not a mockup of hoped-for copy.</div>
+    <div class="sms-meta">SMS · sent once per newly added contact</div>
+    <div class="sms-thread">
+      <div class="sms-bubble">Robert added you as a check-in contact on The Check In. Reply YES to confirm you'll receive daily check-in alerts from them. Reply STOP to opt out.</div>
+      <div class="sms-bubble reply">YES</div>
+      <div class="sms-bubble">You're confirmed! You'll now receive check-in alerts. Reply STOP anytime to opt out.</div>
+    </div>
+    <p style="font-size:14px; color:var(--muted);">"Robert" is dynamically replaced with the name of the person who added the contact.</p>
   </section>
 
   <section>
     <h2>Ongoing messages after opt-in</h2>
     <p>Once a contact has replied YES, they'll receive a short SMS notification only when the app owner presses their daily check-in button. Example:</p>
-    <div class="sms-mock">
-      [App Owner Name] just checked in and is okay. — The Check In
+    <div class="sms-thread">
+      <div class="sms-bubble">This is my daily check-in from The Check In app — I'm okay!</div>
     </div>
   </section>
 
   <section>
     <h2>Opt-out</h2>
-    <p>Any contact can reply <strong>STOP</strong> at any time to stop receiving messages, and <strong>HELP</strong> for assistance, consistent with standard carrier requirements.</p>
+    <p>Any contact can reply <strong>STOP</strong> at any time to stop receiving messages, and <strong>HELP</strong> for assistance, consistent with standard carrier requirements and Twilio's built-in opt-out management.</p>
   </section>
 
   <section>
     <h2>Compliance references</h2>
     <div class="note">
       <table>
-        <tr><td>Privacy Policy</td><td><a href="/privacy">/privacy</a></td></tr>
-        <tr><td>Terms &amp; Conditions</td><td><a href="/terms">/terms</a></td></tr>
+        <tr><td>Privacy Policy</td><td><a href="/privacy-policy.html">/privacy-policy.html</a></td></tr>
+        <tr><td>Terms &amp; Conditions</td><td><a href="/terms.html">/terms.html</a></td></tr>
         <tr><td>Message frequency</td><td>1 confirmation SMS per new contact, plus 1 SMS per daily check-in</td></tr>
         <tr><td>Message &amp; data rates</td><td>May apply, disclosed in Terms</td></tr>
       </table>
@@ -202,8 +247,8 @@
   </section>
 
   <footer>
-    <a href="/privacy">Privacy Policy</a>
-    <a href="/terms">Terms &amp; Conditions</a>
+    <a href="/privacy-policy.html">Privacy Policy</a>
+    <a href="/terms.html">Terms &amp; Conditions</a>
     <span>The Check In</span>
   </footer>
 
