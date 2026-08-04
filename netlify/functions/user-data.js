@@ -1,7 +1,19 @@
 const { getStore } = require('@netlify/blobs');
 
+// Netlify's automatic Blobs configuration has a known issue where it
+// sometimes fails to detect the site context in production, throwing
+// "MissingBlobsEnvironmentError" even though nothing is wrong with the code.
+// Passing siteID/token explicitly avoids relying on that auto-detection.
+function getConfiguredStore(name) {
+  return getStore({
+    name,
+    siteID: process.env.NETLIFY_SITE_ID,
+    token: process.env.NETLIFY_API_TOKEN,
+  });
+}
+
 exports.handler = async (event) => {
-  const store = getStore('checkin-users');
+  const store = getConfiguredStore('checkin-users');
   const userId = event.queryStringParameters && event.queryStringParameters.userId;
 
   if (!userId) {
