@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>The Check In — Prototype</title>
+<title>The Check In</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -18,6 +18,10 @@
     --teal: #2F6F6D;
     --amber: #C97A1D;
     --amber-bg: #FBF0DE;
+    --green: #2E7D4F;
+    --green-bg: #E7F4EC;
+    --gray: #7A8790;
+    --gray-bg: #EDF1F0;
     --line: #D5DEDB;
   }
   * { box-sizing: border-box; }
@@ -151,109 +155,14 @@
     line-height: 1.5;
   }
 
-  /* Contacts screen */
-  .screen-title { font-size: 24px; font-weight: 700; margin-bottom: 4px; align-self: flex-start; }
-  .screen-sub { color: var(--ink-soft); font-size: 16px; margin-bottom: 20px; align-self: flex-start; }
-  .contact-list { width: 100%; display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
-  .contact-row {
-    background: var(--panel);
-    border: 2px solid var(--line);
-    border-radius: 14px;
-    padding: 14px 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .contact-info .name { font-weight: 700; font-size: 17px; }
-  .contact-info .phone { color: var(--ink-soft); font-size: 15px; }
-  .remove-btn {
-    background: none;
-    border: 2px solid var(--line);
-    color: var(--ink-soft);
-    border-radius: 10px;
-    padding: 8px 14px;
-    font-size: 15px;
-    cursor: pointer;
-    font-family: inherit;
-  }
-  .add-contact-btn {
-    width: 100%;
-    background: var(--panel);
-    border: 2px dashed var(--teal);
-    color: var(--teal);
-    border-radius: 14px;
-    padding: 16px;
-    font-size: 17px;
-    font-weight: 700;
-    cursor: pointer;
-    font-family: inherit;
-  }
-  .add-contact-btn:disabled {
-    opacity: 0.5;
-    border-style: solid;
-    cursor: default;
-  }
-  .back-btn {
-    align-self: flex-start;
-    background: none;
-    border: none;
-    color: var(--teal);
-    font-size: 17px;
-    font-weight: 700;
-    cursor: pointer;
-    font-family: inherit;
-    margin-bottom: 16px;
-    padding: 8px 0;
-  }
-
-  .modal-overlay {
-    position: fixed; inset: 0;
-    background: rgba(31,41,51,0.45);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    z-index: 10;
-  }
-  .modal-overlay.show { display: flex; }
-  .modal {
-    background: var(--panel);
-    border-radius: 18px;
-    padding: 24px;
-    width: 100%;
-    max-width: 380px;
-  }
-  .modal h3 { margin: 0 0 16px; font-size: 20px; }
-  .modal label { display: block; font-size: 15px; color: var(--ink-soft); margin-bottom: 6px; margin-top: 14px; }
-  .modal input {
-    width: 100%;
-    padding: 12px 14px;
-    font-size: 17px;
-    border: 2px solid var(--line);
-    border-radius: 10px;
-    font-family: inherit;
-  }
-  .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
-  .modal-actions button {
-    flex: 1;
-    padding: 12px;
-    font-size: 16px;
-    font-weight: 700;
-    border-radius: 10px;
-    cursor: pointer;
-    font-family: inherit;
-    border: none;
-  }
-  .modal-actions .cancel { background: var(--bg); color: var(--ink-soft); }
-  .modal-actions .save { background: var(--teal); color: white; }
-
   footer {
     text-align: center;
     color: var(--ink-soft);
     font-size: 13px;
     padding: 12px 24px 4px;
-    opacity: 0.7;
+    opacity: 0.85;
   }
+  footer a { color: var(--ink-soft); }
 
   .reminder-card {
     width: 100%;
@@ -333,6 +242,155 @@
     line-height: 1.5;
   }
   .home-screen-steps.show { display: block; }
+
+  /* Contacts screen */
+  .screen-title { font-size: 24px; font-weight: 700; margin-bottom: 4px; align-self: flex-start; }
+  .screen-sub { color: var(--ink-soft); font-size: 16px; margin-bottom: 20px; align-self: flex-start; }
+
+  .owner-name-card {
+    width: 100%;
+    background: var(--panel);
+    border: 2px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+  }
+  .owner-name-card label { display: block; font-size: 14px; color: var(--ink-soft); margin-bottom: 6px; }
+  .owner-name-card input {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 16px;
+    border: 2px solid var(--line);
+    border-radius: 10px;
+    font-family: inherit;
+  }
+  .owner-name-hint { font-size: 13px; color: var(--ink-soft); margin-top: 6px; }
+
+  .contact-list { width: 100%; display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+  .contact-row {
+    background: var(--panel);
+    border: 2px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .contact-info .name { font-weight: 700; font-size: 17px; }
+  .contact-info .phone { color: var(--ink-soft); font-size: 15px; }
+  .contact-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .status-badge {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .status-badge.confirmed { background: var(--green-bg); color: var(--green); }
+  .status-badge.pending { background: var(--amber-bg); color: var(--amber); }
+  .status-badge.no-response { background: var(--gray-bg); color: var(--gray); }
+  .status-badge.declined { background: var(--gray-bg); color: var(--gray); }
+  .row-btn-group { display: flex; gap: 8px; }
+  .remove-btn, .resend-btn {
+    background: none;
+    border: 2px solid var(--line);
+    color: var(--ink-soft);
+    border-radius: 10px;
+    padding: 6px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .resend-btn { color: var(--teal); border-color: var(--teal); }
+  .add-contact-btn {
+    width: 100%;
+    background: var(--panel);
+    border: 2px dashed var(--teal);
+    color: var(--teal);
+    border-radius: 14px;
+    padding: 16px;
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .add-contact-btn:disabled {
+    opacity: 0.5;
+    border-style: solid;
+    cursor: default;
+  }
+  .back-btn {
+    align-self: flex-start;
+    background: none;
+    border: none;
+    color: var(--teal);
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    margin-bottom: 16px;
+    padding: 8px 0;
+  }
+
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(31,41,51,0.45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 10;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--panel);
+    border-radius: 18px;
+    padding: 24px;
+    width: 100%;
+    max-width: 380px;
+  }
+  .modal h3 { margin: 0 0 16px; font-size: 20px; }
+  .modal label { display: block; font-size: 15px; color: var(--ink-soft); margin-bottom: 6px; margin-top: 14px; }
+  .modal input {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 17px;
+    border: 2px solid var(--line);
+    border-radius: 10px;
+    font-family: inherit;
+  }
+  .modal-note {
+    margin-top: 14px;
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.4;
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .modal-error {
+    margin-top: 10px;
+    font-size: 14px;
+    color: var(--red-dark);
+    display: none;
+  }
+  .modal-error.show { display: block; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
+  .modal-actions button {
+    flex: 1;
+    padding: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: inherit;
+    border: none;
+  }
+  .modal-actions .cancel { background: var(--bg); color: var(--ink-soft); }
+  .modal-actions .save { background: var(--teal); color: white; }
+  .modal-actions .save:disabled { opacity: 0.6; cursor: default; }
 </style>
 </head>
 <body>
@@ -385,12 +443,21 @@
       <button class="back-btn" id="backBtn">&larr; Back</button>
       <div class="screen-title">Who gets notified</div>
       <div class="screen-sub">Choose up to 5 people to receive your check-in.</div>
+
+      <div class="owner-name-card">
+        <label for="ownerNameInput">Your name</label>
+        <input type="text" id="ownerNameInput" placeholder="e.g. Robert">
+        <div class="owner-name-hint">Shown to contacts in the text asking them to confirm.</div>
+      </div>
+
       <div class="contact-list" id="contactList"></div>
       <button class="add-contact-btn" id="addContactBtn">+ Add a person</button>
     </div>
   </main>
 
-  <footer>Prototype — no messages are actually sent</footer>
+  <footer>
+    <a href="/privacy-policy.html">Privacy Policy</a> &middot; <a href="/terms.html">Terms &amp; Conditions</a>
+  </footer>
 </div>
 
 <div class="modal-overlay" id="modalOverlay">
@@ -400,13 +467,11 @@
     <input type="text" id="nameInput" placeholder="e.g. Barb">
     <label for="phoneInput">Phone number</label>
     <input type="tel" id="phoneInput" placeholder="e.g. (765) 555-0100">
-    <label style="display:block; position:relative; margin-top:16px; font-size:14px; padding-left:28px; line-height:1.4;">
-        <input type="checkbox" id="consentCheck" style="position:absolute; left:0; top:2px; margin:0;">
-        I confirm this person has agreed to receive SMS check-in notifications, and will get a one-time text to confirm before any check-ins are sent.
-      </label>
+    <div class="modal-note">They'll get a one-time text asking them to reply YES before any check-ins are sent to them. Nothing is sent to them until they confirm.</div>
+    <div class="modal-error" id="modalError"></div>
     <div class="modal-actions">
       <button class="cancel" id="cancelModal">Cancel</button>
-      <button class="save" id="saveModal">Save</button>
+      <button class="save" id="saveModal">Save &amp; send confirmation text</button>
     </div>
   </div>
 </div>
@@ -424,6 +489,13 @@
 </div>
 
 <script>
+  // This has to match the APP_SHARED_SECRET environment variable set in Netlify.
+  // It's visible to anyone who views this page's source — that's unavoidable for
+  // a purely client-side app — but it still blocks random bots/scanners that
+  // never load the page at all.
+  const APP_SECRET = 'd24a994e38134d02da9f2e877b019f6b67236a766185b1bc03689cf838735e86';
+  const PENDING_TIMEOUT_MS = 48 * 60 * 60 * 1000; // 48 hours
+
   // --- User identity (ties each phone/browser to its saved data) ---
   function getUserId() {
     let id = localStorage.getItem('checkinUserId');
@@ -436,6 +508,7 @@
   const userId = getUserId();
 
   let contacts = [];
+  let ownerName = '';
 
   const homeScreen = document.getElementById('homeScreen');
   const contactsScreen = document.getElementById('contactsScreen');
@@ -453,8 +526,10 @@
   const modalOverlay = document.getElementById('modalOverlay');
   const nameInput = document.getElementById('nameInput');
   const phoneInput = document.getElementById('phoneInput');
+  const modalError = document.getElementById('modalError');
   const cancelModal = document.getElementById('cancelModal');
   const saveModal = document.getElementById('saveModal');
+  const ownerNameInput = document.getElementById('ownerNameInput');
 
   // --- Save/load from server storage ---
   async function saveUserData() {
@@ -462,7 +537,7 @@
       await fetch(`/.netlify/functions/user-data?userId=${encodeURIComponent(userId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contacts, checkInHour, checkInMinute }),
+        body: JSON.stringify({ contacts, checkInHour, checkInMinute, ownerName }),
       });
     } catch (err) {
       console.error('Save failed', err);
@@ -476,10 +551,12 @@
       contacts = data.contacts || [];
       checkInHour = (typeof data.checkInHour === 'number') ? data.checkInHour : 9;
       checkInMinute = (typeof data.checkInMinute === 'number') ? data.checkInMinute : 0;
+      ownerName = data.ownerName || '';
     } catch (err) {
       console.error('Load failed', err);
       contacts = [];
     }
+    ownerNameInput.value = ownerName;
     renderContacts();
     renderReminder();
   }
@@ -492,17 +569,48 @@
   settingsBtn.addEventListener('click', () => { renderContacts(); showScreen('contactsScreen'); });
   backBtn.addEventListener('click', () => showScreen('homeScreen'));
 
+  ownerNameInput.addEventListener('blur', () => {
+    const trimmed = ownerNameInput.value.trim();
+    if (trimmed !== ownerName) {
+      ownerName = trimmed;
+      saveUserData();
+    }
+  });
+
+  function contactStatusInfo(c) {
+    if (c.status === 'confirmed') {
+      return { label: 'Confirmed', className: 'confirmed', showResend: false };
+    }
+    if (c.status === 'declined') {
+      return { label: 'Declined', className: 'declined', showResend: false };
+    }
+    // status is 'pending' (or missing, for safety)
+    const sentAt = c.optInSentAt || 0;
+    const isStale = Date.now() - sentAt > PENDING_TIMEOUT_MS;
+    if (isStale) {
+      return { label: 'No response', className: 'no-response', showResend: true };
+    }
+    return { label: 'Pending', className: 'pending', showResend: false };
+  }
+
   function renderContacts() {
     contactList.innerHTML = '';
     contacts.forEach((c, i) => {
+      const info = contactStatusInfo(c);
       const row = document.createElement('div');
       row.className = 'contact-row';
       row.innerHTML = `
         <div class="contact-info">
-          <div class="name">${c.name}</div>
-          <div class="phone">${c.phone}</div>
+          <div class="name">${escapeHtml(c.name)}</div>
+          <div class="phone">${escapeHtml(c.phone)}</div>
         </div>
-        <button class="remove-btn" data-i="${i}">Remove</button>
+        <div class="contact-actions">
+          <span class="status-badge ${info.className}">${info.label}</span>
+          <div class="row-btn-group">
+            ${info.showResend ? `<button class="resend-btn" data-i="${i}">Resend</button>` : ''}
+            <button class="remove-btn" data-i="${i}">Remove</button>
+          </div>
+        </div>
       `;
       contactList.appendChild(row);
     });
@@ -513,24 +621,89 @@
         saveUserData();
       });
     });
+    contactList.querySelectorAll('.resend-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const c = contacts[Number(btn.dataset.i)];
+        btn.disabled = true;
+        btn.textContent = 'Sending…';
+        const result = await sendOptin(c);
+        if (result.success) {
+          c.optInSentAt = Date.now();
+          saveUserData();
+        }
+        renderContacts();
+      });
+    });
     addContactBtn.disabled = contacts.length >= 5;
     addContactBtn.textContent = contacts.length >= 5 ? "You've reached the limit of 5" : "+ Add a person";
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
   }
 
   addContactBtn.addEventListener('click', () => {
     if (contacts.length >= 5) return;
     nameInput.value = '';
     phoneInput.value = '';
+    modalError.classList.remove('show');
+    modalError.textContent = '';
+    saveModal.disabled = false;
+    saveModal.textContent = 'Save & send confirmation text';
     modalOverlay.classList.add('show');
     nameInput.focus();
   });
   cancelModal.addEventListener('click', () => modalOverlay.classList.remove('show'));
-  saveModal.addEventListener('click', () => {
+
+  async function sendOptin(contact) {
+    try {
+      const res = await fetch('/.netlify/functions/send-optin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-App-Secret': APP_SECRET,
+        },
+        body: JSON.stringify({ userId, ownerName, contact: { name: contact.name, phone: contact.phone } }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { success: false, error: data.error || 'Could not send the confirmation text.' };
+      }
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: 'Network error — check your connection and try again.' };
+    }
+  }
+
+  saveModal.addEventListener('click', async () => {
     const name = nameInput.value.trim();
     const phone = phoneInput.value.trim();
-    const consented = document.getElementById('consentCheck').checked;
-    if (!name || !phone || !consented) return;
-    contacts.push({ name, phone });
+    modalError.classList.remove('show');
+    modalError.textContent = '';
+
+    if (!name || !phone) {
+      modalError.textContent = 'Please enter a name and phone number.';
+      modalError.classList.add('show');
+      return;
+    }
+
+    saveModal.disabled = true;
+    saveModal.textContent = 'Sending confirmation text…';
+
+    const newContact = { name, phone, status: 'pending', optInSentAt: Date.now() };
+    const result = await sendOptin(newContact);
+
+    if (!result.success) {
+      modalError.textContent = result.error;
+      modalError.classList.add('show');
+      saveModal.disabled = false;
+      saveModal.textContent = 'Save & send confirmation text';
+      return;
+    }
+
+    contacts.push(newContact);
     modalOverlay.classList.remove('show');
     renderContacts();
     saveUserData();
@@ -539,10 +712,17 @@
   let checkedInToday = false;
 
   pressBtn.addEventListener('click', async () => {
+    const confirmedContacts = contacts.filter(c => c.status === 'confirmed');
+
     if (contacts.length === 0) {
       statusLine.textContent = "Add at least one person before checking in.";
       return;
     }
+    if (confirmedContacts.length === 0) {
+      statusLine.textContent = "None of your contacts have confirmed yet — check the status list under the gear icon.";
+      return;
+    }
+
     pressBtn.classList.add('pressed');
     ripple.classList.remove('animate'); void ripple.offsetWidth; ripple.classList.add('animate');
     setTimeout(() => pressBtn.classList.remove('pressed'), 200);
@@ -550,7 +730,7 @@
 
     const now = new Date();
     const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const names = contacts.map(c => c.name).join(', ');
+    const names = confirmedContacts.map(c => c.name).join(', ');
 
     confirmHeadline.textContent = "Sending\u2026";
     confirmSub.textContent = `Letting ${names} know you're okay.`;
@@ -560,8 +740,11 @@
     try {
       const res = await fetch('/.netlify/functions/send-checkin', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contacts }),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-App-Secret': APP_SECRET,
+        },
+        body: JSON.stringify({ contacts: confirmedContacts }),
       });
       const data = await res.json();
 
@@ -570,7 +753,7 @@
         overdueBanner.classList.remove('show');
         reminderCard.classList.remove('overdue');
         confirmHeadline.textContent = "Sent!";
-        confirmSub.textContent = `${names} ${contacts.length > 1 ? 'have' : 'has'} been notified. (${time})`;
+        confirmSub.textContent = `${names} ${confirmedContacts.length > 1 ? 'have' : 'has'} been notified. (${time})`;
       } else {
         const failed = (data.results || []).filter(r => !r.success).map(r => r.name);
         confirmHeadline.textContent = "Some messages didn't send";
@@ -628,6 +811,7 @@
   });
 
   setInterval(renderReminder, 30000);
+  setInterval(renderContacts, 60000); // keeps Pending -> No response timing fresh if left open
 
   // --- Get this on your phone ---
   const textLinkBtn = document.getElementById('textLinkBtn');
@@ -645,7 +829,7 @@
     homeScreenSteps.classList.toggle('show');
   });
 
-  // Load this person's saved contacts and check-in time when the page opens
+  // Load this person's saved contacts, name, and check-in time when the page opens
   loadUserData();
 </script>
 </body>
