@@ -17,6 +17,18 @@
 const crypto = require('crypto');
 const { getStore } = require('@netlify/blobs');
 
+// Netlify's automatic Blobs configuration has a known issue where it
+// sometimes fails to detect the site context in production, throwing
+// "MissingBlobsEnvironmentError" even though nothing is wrong with the code.
+// Passing siteID/token explicitly avoids relying on that auto-detection.
+function getConfiguredStore(name) {
+  return getStore({
+    name,
+    siteID: process.env.NETLIFY_SITE_ID,
+    token: process.env.NETLIFY_API_TOKEN,
+  });
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
@@ -50,11 +62,11 @@ exports.handler = async (event) => {
   // Only act on an explicit YES. Anything else (including STOP/HELP, which
   // Twilio intercepts before this function even runs) gets no reply here.
   if (from && body === 'YES') {
-    const pendingStore = getStore('checkin-pending-optins');
+    const pendingStore = getConfiguredStore('checkin-pending-optins');
     const pending = (await pendingStore.get(from, { type: 'json' })) || [];
 
     if (pending.length > 0) {
-      const usersStore = getStore('checkin-users');
+      const usersStore = getConfiguredStore('checkin-users');
 
       await Promise.all(
         pending.map(async (entry) => {
