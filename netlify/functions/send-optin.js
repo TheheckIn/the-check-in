@@ -14,6 +14,18 @@ const { getStore } = require('@netlify/blobs');
 
 const SITE_ORIGIN = 'https://helpful-squirrel-b651a9.netlify.app';
 
+// Netlify's automatic Blobs configuration has a known issue where it
+// sometimes fails to detect the site context in production, throwing
+// "MissingBlobsEnvironmentError" even though nothing is wrong with the code.
+// Passing siteID/token explicitly avoids relying on that auto-detection.
+function getConfiguredStore(name) {
+  return getStore({
+    name,
+    siteID: process.env.NETLIFY_SITE_ID,
+    token: process.env.NETLIFY_API_TOKEN,
+  });
+}
+
 exports.handler = async (event) => {
   // Browsers send an OPTIONS preflight request before the real POST,
   // because we're sending a custom header (X-App-Secret). This has to
@@ -105,7 +117,7 @@ exports.handler = async (event) => {
 
     // Record this (userId, contact) pair as pending, keyed by the contact's phone number,
     // so the inbound webhook can resolve a later "YES" reply back to the right user/contact.
-    const pendingStore = getStore('checkin-pending-optins');
+    const pendingStore = getConfiguredStore('checkin-pending-optins');
     const existing = (await pendingStore.get(toNumber, { type: 'json' })) || [];
     const filtered = existing.filter((p) => p.userId !== userId); // replace any prior pending entry for this pair
     filtered.push({ userId, name: contact.name, ownerName: displayOwnerName, sentAt: Date.now() });
