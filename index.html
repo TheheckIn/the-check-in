@@ -744,7 +744,7 @@
           'Content-Type': 'application/json',
           'X-App-Secret': APP_SECRET,
         },
-        body: JSON.stringify({ contacts: confirmedContacts }),
+        body: JSON.stringify({ userId, contacts: confirmedContacts }),
       });
       const data = await res.json();
 
@@ -754,6 +754,15 @@
         reminderCard.classList.remove('overdue');
         confirmHeadline.textContent = "Sent!";
         confirmSub.textContent = `${names} ${confirmedContacts.length > 1 ? 'have' : 'has'} been notified. (${time})`;
+        if (typeof data.sendsRemaining === 'number' && data.sendsRemaining <= 1 && data.sendsRemaining >= 0) {
+          confirmSub.textContent += data.sendsRemaining === 1
+            ? ' (1 check-in left today.)'
+            : ' (That was your last check-in for today.)';
+        }
+      } else if (res.status === 429) {
+        checkedInToday = true;
+        confirmHeadline.textContent = "Check-in limit reached";
+        confirmSub.textContent = "You've already sent a few check-ins today — try again tomorrow.";
       } else {
         const failed = (data.results || []).filter(r => !r.success).map(r => r.name);
         confirmHeadline.textContent = "Some messages didn't send";
