@@ -2,13 +2,39 @@
 //
 // Sends a one-tap "I'm OK" SMS to each contact using Twilio.
 // Expects a POST body like:
-// { "contacts": [{ "name": "Barb", "phone": "+17655550142" }, ...] }
+// { "userId": "abc123", "contacts": [{ "name": "Barb", "phone": "+17655550142" }, ...] }
 //
 // Requires an "X-App-Secret" header matching the APP_SHARED_SECRET
 // environment variable, so random internet traffic can't trigger sends.
+//
+// RATE LIMIT: a user can send at most MAX_SENDS_PER_WINDOW check-ins per
+// rolling WINDOW_HOURS. Without this, someone (accidentally or on
+// purpose) tapping the button repeatedly would send — and get billed for —
+// a fresh round of SMS to every contact each time. This is a real cost
+// leak on a per-message-billed product, so it's enforced server-side,
+// not just hidden by disabling the button in the browser (which a refresh
+// or a second tab would bypass). The limit is deliberately more than 1 so
+// a genuine resend (forgot a contact, mistyped a number, wanted to confirm
+// it went through) isn't blocked — only sustained spamming is.
+
+const { getStore } = require('@netlify/blobs');
 
 const SITE_ORIGIN = 'https://helpful-squirrel-b651a9.netlify.app';
 const MAX_CONTACTS = 5;
+const MAX_SENDS_PER_WINDOW = 3;
+const WINDOW_HOURS = 24;
+
+// Netlify's automatic Blobs configuration has a known issue where it
+// sometimes fails to detect the site context in production, throwing
+// "MissingBlobsEnvironmentError" even though nothing is wrong with the code.
+// Passing siteID/token explicitly avoids relying on that auto-detection.
+function getConfiguredStore(name) {
+  return getStore({
+    name,
+    siteID: process.env.NETLIFY_SITE_ID,
+    token: process.env.NETLIFY_API_TOKEN,
+  });
+}
 
 exports.handler = async (event) => {
   // Browsers send an OPTIONS preflight request before the real POST,
@@ -69,6 +95,33 @@ exports.handler = async (event) => {
     contacts = contacts.slice(0, MAX_CONTACTS);
   }
 
+  const userId = payload.userId;
+  if (!userId) {
+    return { statusCode: 400, headers: corsHeaders(), body: JSON.stringify({ error: 'Missing userId.' }) };
+  }
+
+  // Rate limit check: block if this user has already sent MAX_SENDS_PER_WINDOW
+  // check-ins within the last WINDOW_HOURS.
+  const sendLogStore = getConfiguredStore('checkin-send-log');
+  const sendHistory = (await sendLogStore.get(userId, { type: 'json' })) || [];
+  const now = Date.now();
+  const windowMs = WINDOW_HOURS * 60 * 60 * 1000;
+  const recentSends = sendHistory.filter((ts) => now - ts < windowMs);
+
+  if (recentSends.length >= MAX_SENDS_PER_WINDOW) {
+    const oldestInWindow = Math.min(...recentSends);
+    const nextAllowed = new Date(oldestInWindow + windowMs);
+    return {
+      statusCode: 429,
+      headers: corsHeaders(),
+      body: JSON.stringify({
+        error: 'Check-in limit reached for today.',
+        rateLimited: true,
+        nextAllowedAt: nextAllowed.toISOString(),
+      }),
+    };
+  }
+
   const message = payload.message || "This is my daily check-in from The Check In app — I'm okay!";
   const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
   const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
@@ -105,10 +158,22 @@ exports.handler = async (event) => {
   );
 
   const allSucceeded = results.every((r) => r.success);
+  const anySucceeded = results.some((r) => r.success);
+
+  // Only record this as a "used" send if at least one message actually went
+  // out — a fully failed attempt (bad numbers, Twilio outage) shouldn't eat
+  // into the user's limited sends for the day.
+  let sendsRemaining = MAX_SENDS_PER_WINDOW - recentSends.length;
+  if (anySucceeded) {
+    const updatedHistory = [...recentSends, now];
+    await sendLogStore.setJSON(userId, updatedHistory);
+    sendsRemaining = MAX_SENDS_PER_WINDOW - updatedHistory.length;
+  }
+
   return {
     statusCode: allSucceeded ? 200 : 207, // 207 = partial success
     headers: corsHeaders(),
-    body: JSON.stringify({ results }),
+    body: JSON.stringify({ results, sendsRemaining }),
   };
 };
 
