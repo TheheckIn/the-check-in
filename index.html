@@ -10,21 +10,17 @@
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #EAF0EE;
+    --bg: #F5F5F3;
     --panel: #FFFFFF;
-    --ink: #1F2933;
-    --ink-soft: #52616B;
+    --ink: #111111;
+    --ink-soft: #5A5A5A;
     --red: #D7263D;
     --red-dark: #A81C2F;
     --red-shadow: #7A1220;
-    --teal: #2F6F6D;
-    --amber: #C97A1D;
-    --amber-bg: #FBF0DE;
-    --green: #2E7D4F;
-    --green-bg: #E7F4EC;
-    --gray: #7A8790;
-    --gray-bg: #EDF1F0;
-    --line: #D5DEDB;
+    --red-bg: #FBE9E8;
+    --gray: #7A7A7A;
+    --gray-bg: #EFEFED;
+    --line: #DEDEDC;
   }
   * { box-sizing: border-box; }
   body {
@@ -46,16 +42,19 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 20px 24px 8px;
+    padding: 20px 24px;
+    background: #111111;
+    border-bottom: 3px solid var(--red);
   }
   .brand {
     font-size: 22px;
     font-weight: 700;
     letter-spacing: -0.3px;
+    color: #F5F5F5;
   }
   .settings-btn {
-    background: var(--panel);
-    border: 2px solid var(--teal);
+    background: transparent;
+    border: 2px solid var(--red);
     border-radius: 14px;
     padding: 10px 16px;
     display: flex;
@@ -65,12 +64,12 @@
     font-size: 15px;
     font-weight: 700;
     font-family: inherit;
-    color: var(--teal);
+    color: #F0847F;
     white-space: nowrap;
   }
   .settings-btn .gear-icon { font-size: 18px; }
   .settings-btn:focus-visible, button:focus-visible, .contact-row button:focus-visible {
-    outline: 3px solid var(--teal);
+    outline: 3px solid var(--red);
     outline-offset: 2px;
   }
   main {
@@ -94,8 +93,8 @@
   .no-contacts-banner {
     display: none;
     width: 100%;
-    background: var(--green-bg);
-    border: 2px solid var(--teal);
+    background: var(--panel);
+    border: 2px solid var(--ink);
     border-radius: 14px;
     padding: 16px 18px;
     margin-bottom: 16px;
@@ -103,13 +102,13 @@
   }
   .no-contacts-banner.show { display: block; }
   .no-contacts-banner .banner-text {
-    color: var(--teal);
+    color: var(--ink);
     font-weight: 700;
     margin-bottom: 12px;
     font-size: 16px;
   }
   .banner-btn {
-    background: var(--teal);
+    background: var(--red);
     color: white;
     border: none;
     border-radius: 10px;
@@ -170,15 +169,15 @@
 
   .confirm-card {
     width: 100%;
-    background: var(--amber-bg);
-    border: 2px solid var(--amber);
+    background: var(--panel);
+    border: 2px solid var(--ink);
     border-radius: 18px;
     padding: 20px 22px;
     text-align: center;
     display: none;
   }
   .confirm-card.show { display: block; }
-  .confirm-card .headline { font-size: 20px; font-weight: 700; color: var(--amber); margin-bottom: 4px; }
+  .confirm-card .headline { font-size: 20px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
   .confirm-card .sub { color: var(--ink-soft); font-size: 16px; }
 
   .instructions {
@@ -211,12 +210,12 @@
     gap: 12px;
   }
   .reminder-card.overdue {
-    border-color: var(--amber);
-    background: var(--amber-bg);
+    border-color: var(--red);
+    background: var(--red-bg);
   }
   .reminder-label { font-size: 14px; color: var(--ink-soft); margin-bottom: 2px; }
   .reminder-time { font-size: 20px; font-weight: 700; }
-  .reminder-card.overdue .reminder-time { color: var(--amber); }
+  .reminder-card.overdue .reminder-time { color: var(--red-dark); }
   .edit-time-btn {
     background: var(--bg);
     border: 2px solid var(--line);
@@ -231,7 +230,7 @@
   .overdue-banner {
     display: none;
     width: 100%;
-    background: var(--amber);
+    background: var(--red);
     color: white;
     text-align: center;
     font-weight: 700;
@@ -255,7 +254,7 @@
     text-align: center;
     background: var(--panel);
     border: 2px solid var(--line);
-    color: var(--teal);
+    color: var(--ink);
     border-radius: 12px;
     padding: 12px 8px;
     font-size: 14px;
@@ -322,8 +321,8 @@
     border-radius: 999px;
     white-space: nowrap;
   }
-  .status-badge.confirmed { background: var(--green-bg); color: var(--green); }
-  .status-badge.pending { background: var(--amber-bg); color: var(--amber); }
+  .status-badge.confirmed { background: var(--ink); color: white; }
+  .status-badge.pending { background: var(--panel); color: var(--red); border: 1.5px solid var(--red); }
   .status-badge.no-response { background: var(--gray-bg); color: var(--gray); }
   .status-badge.declined { background: var(--gray-bg); color: var(--gray); }
   .row-btn-group { display: flex; gap: 8px; }
@@ -337,12 +336,12 @@
     cursor: pointer;
     font-family: inherit;
   }
-  .resend-btn { color: var(--teal); border-color: var(--teal); }
+  .resend-btn { color: var(--red); border-color: var(--red); }
   .add-contact-btn {
     width: 100%;
     background: var(--panel);
-    border: 2px dashed var(--teal);
-    color: var(--teal);
+    border: 2px dashed var(--ink);
+    color: var(--ink);
     border-radius: 14px;
     padding: 16px;
     font-size: 17px;
@@ -359,7 +358,7 @@
     align-self: flex-start;
     background: none;
     border: none;
-    color: var(--teal);
+    color: var(--ink);
     font-size: 17px;
     font-weight: 700;
     cursor: pointer;
@@ -423,7 +422,7 @@
     border: none;
   }
   .modal-actions .cancel { background: var(--bg); color: var(--ink-soft); }
-  .modal-actions .save { background: var(--teal); color: white; }
+  .modal-actions .save { background: var(--ink); color: white; }
   .modal-actions .save:disabled { opacity: 0.6; cursor: default; }
 </style>
 </head>
