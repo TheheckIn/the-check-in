@@ -20,7 +20,7 @@
 const { getStore } = require('@netlify/blobs');
 
 const SITE_ORIGIN = 'https://helpful-squirrel-b651a9.netlify.app';
-const MAX_CONTACTS = 5;
+const MAX_CONTACTS = 3;
 const MAX_SENDS_PER_WINDOW = 3;
 const WINDOW_HOURS = 24;
 
