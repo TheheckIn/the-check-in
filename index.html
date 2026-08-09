@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Check In</title>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -51,20 +53,23 @@
     font-weight: 700;
     letter-spacing: -0.3px;
   }
-  .gear-btn {
+  .settings-btn {
     background: var(--panel);
-    border: 2px solid var(--line);
+    border: 2px solid var(--teal);
     border-radius: 14px;
-    width: 52px;
-    height: 52px;
+    padding: 10px 16px;
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 7px;
     cursor: pointer;
-    font-size: 24px;
-    color: var(--ink-soft);
+    font-size: 15px;
+    font-weight: 700;
+    font-family: inherit;
+    color: var(--teal);
+    white-space: nowrap;
   }
-  .gear-btn:focus-visible, button:focus-visible, .contact-row button:focus-visible {
+  .settings-btn .gear-icon { font-size: 18px; }
+  .settings-btn:focus-visible, button:focus-visible, .contact-row button:focus-visible {
     outline: 3px solid var(--teal);
     outline-offset: 2px;
   }
@@ -84,6 +89,35 @@
     font-size: 18px;
     margin: 6px 0 28px;
     min-height: 26px;
+  }
+
+  .no-contacts-banner {
+    display: none;
+    width: 100%;
+    background: var(--green-bg);
+    border: 2px solid var(--teal);
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .no-contacts-banner.show { display: block; }
+  .no-contacts-banner .banner-text {
+    color: var(--teal);
+    font-weight: 700;
+    margin-bottom: 12px;
+    font-size: 16px;
+  }
+  .banner-btn {
+    background: var(--teal);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
   }
 
   .button-wrap {
@@ -397,12 +431,17 @@
 <div class="app">
   <header>
     <div class="brand">The Check In</div>
-    <button class="gear-btn" id="settingsBtn" aria-label="Manage contacts">&#9881;</button>
+    <button class="settings-btn" id="settingsBtn" aria-label="Manage contacts"><span class="gear-icon">&#9881;</span> Contacts</button>
   </header>
 
   <main>
     <!-- Home screen -->
     <div class="screen active" id="homeScreen">
+      <div class="no-contacts-banner" id="noContactsBanner">
+        <div class="banner-text">Add your first contact to start sending check-ins.</div>
+        <button class="banner-btn" id="addFirstContactBtn">+ Add someone</button>
+      </div>
+
       <div class="overdue-banner" id="overdueBanner">It's past your check-in time</div>
       <div class="status-line" id="statusLine">Press the button to let your people know you're okay.</div>
 
@@ -442,12 +481,12 @@
     <div class="screen" id="contactsScreen">
       <button class="back-btn" id="backBtn">&larr; Back</button>
       <div class="screen-title">Who gets notified</div>
-      <div class="screen-sub">Choose up to 5 people to receive your check-in.</div>
+      <div class="screen-sub">Choose up to 3 people to receive your check-in.</div>
 
       <div class="owner-name-card">
         <label for="ownerNameInput">Your name</label>
         <input type="text" id="ownerNameInput" placeholder="e.g. Robert">
-        <div class="owner-name-hint">Shown to contacts in the text asking them to confirm.</div>
+        <div class="owner-name-hint">Shown to contacts in the text asking them to confirm, and included in your daily check-in message.</div>
       </div>
 
       <div class="contact-list" id="contactList"></div>
@@ -530,6 +569,8 @@
   const cancelModal = document.getElementById('cancelModal');
   const saveModal = document.getElementById('saveModal');
   const ownerNameInput = document.getElementById('ownerNameInput');
+  const noContactsBanner = document.getElementById('noContactsBanner');
+  const addFirstContactBtn = document.getElementById('addFirstContactBtn');
 
   // --- Save/load from server storage ---
   async function saveUserData() {
@@ -559,6 +600,7 @@
     ownerNameInput.value = ownerName;
     renderContacts();
     renderReminder();
+    updateNoContactsBanner();
   }
 
   function showScreen(id) {
@@ -566,7 +608,12 @@
     document.getElementById(id).classList.add('active');
   }
 
+  function updateNoContactsBanner() {
+    noContactsBanner.classList.toggle('show', contacts.length === 0);
+  }
+
   settingsBtn.addEventListener('click', () => { renderContacts(); showScreen('contactsScreen'); });
+  addFirstContactBtn.addEventListener('click', () => { renderContacts(); showScreen('contactsScreen'); });
   backBtn.addEventListener('click', () => showScreen('homeScreen'));
 
   ownerNameInput.addEventListener('blur', () => {
@@ -618,6 +665,7 @@
       btn.addEventListener('click', () => {
         contacts.splice(Number(btn.dataset.i), 1);
         renderContacts();
+        updateNoContactsBanner();
         saveUserData();
       });
     });
@@ -634,8 +682,8 @@
         renderContacts();
       });
     });
-    addContactBtn.disabled = contacts.length >= 5;
-    addContactBtn.textContent = contacts.length >= 5 ? "You've reached the limit of 5" : "+ Add a person";
+    addContactBtn.disabled = contacts.length >= 3;
+    addContactBtn.textContent = contacts.length >= 3 ? "You've reached the limit of 3" : "+ Add a person";
   }
 
   function escapeHtml(str) {
@@ -645,7 +693,7 @@
   }
 
   addContactBtn.addEventListener('click', () => {
-    if (contacts.length >= 5) return;
+    if (contacts.length >= 3) return;
     nameInput.value = '';
     phoneInput.value = '';
     modalError.classList.remove('show');
@@ -706,10 +754,35 @@
     contacts.push(newContact);
     modalOverlay.classList.remove('show');
     renderContacts();
+    updateNoContactsBanner();
     saveUserData();
   });
 
   let checkedInToday = false;
+
+  // Builds the message text sent to confirmed contacts, using the
+  // saved owner name when available so contacts know who checked in.
+  function buildCheckinMessage() {
+    const displayName = (ownerName && ownerName.trim()) || null;
+    if (displayName) {
+      return `This is ${displayName}'s daily check-in from The Check In app — they're okay!`;
+    }
+    return "This is my daily check-in from The Check In app — I'm okay!";
+  }
+
+  // Formats the server's nextAllowedAt timestamp into a friendly,
+  // accurate string instead of a vague "try again tomorrow."
+  function formatNextAllowed(nextAllowedAtIso) {
+    const nextTime = new Date(nextAllowedAtIso);
+    const now = new Date();
+    const timeStr = nextTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const sameDay = nextTime.toDateString() === now.toDateString();
+    if (sameDay) {
+      return `You can check in again at ${timeStr}.`;
+    }
+    const dateStr = nextTime.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    return `You can check in again on ${dateStr} at ${timeStr}.`;
+  }
 
   pressBtn.addEventListener('click', async () => {
     const confirmedContacts = contacts.filter(c => c.status === 'confirmed');
@@ -719,7 +792,7 @@
       return;
     }
     if (confirmedContacts.length === 0) {
-      statusLine.textContent = "None of your contacts have confirmed yet — check the status list under the gear icon.";
+      statusLine.textContent = "None of your contacts have confirmed yet — check the status list under Contacts.";
       return;
     }
 
@@ -744,7 +817,7 @@
           'Content-Type': 'application/json',
           'X-App-Secret': APP_SECRET,
         },
-        body: JSON.stringify({ userId, contacts: confirmedContacts }),
+        body: JSON.stringify({ userId, contacts: confirmedContacts, message: buildCheckinMessage() }),
       });
       const data = await res.json();
 
@@ -762,7 +835,9 @@
       } else if (res.status === 429) {
         checkedInToday = true;
         confirmHeadline.textContent = "Check-in limit reached";
-        confirmSub.textContent = "You've already sent a few check-ins today — try again tomorrow.";
+        confirmSub.textContent = data.nextAllowedAt
+          ? `You've reached today's check-in limit. ${formatNextAllowed(data.nextAllowedAt)}`
+          : "You've already sent a few check-ins today — try again later.";
       } else {
         const failed = (data.results || []).filter(r => !r.success).map(r => r.name);
         confirmHeadline.textContent = "Some messages didn't send";
