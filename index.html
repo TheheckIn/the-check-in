@@ -18,6 +18,8 @@
     --red-dark: #A81C2F;
     --red-shadow: #7A1220;
     --red-bg: #FBE9E8;
+    --green: #1E7A46;
+    --green-bg: #E8F5EC;
     --gray: #7A7A7A;
     --gray-bg: #EFEFED;
     --line: #DEDEDC;
@@ -119,6 +121,21 @@
     font-family: inherit;
   }
 
+  /* Checked-in-today banner — replaces the old fixed-time "overdue" banner */
+  .status-banner {
+    display: none;
+    width: 100%;
+    text-align: center;
+    font-weight: 700;
+    font-size: 15px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+  .status-banner.show { display: block; }
+  .status-banner.good { background: var(--green-bg); color: var(--green); }
+  .status-banner.limit { background: var(--gray-bg); color: var(--ink-soft); }
+
   .button-wrap {
     position: relative;
     width: 260px;
@@ -197,49 +214,18 @@
   }
   footer a { color: var(--ink-soft); }
 
-  .reminder-card {
+  /* Soft, display-only info card — no editable time, no logic tied to it */
+  .info-card {
     width: 100%;
     background: var(--panel);
     border: 2px solid var(--line);
     border-radius: 16px;
     padding: 16px 18px;
     margin-top: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-  .reminder-card.overdue {
-    border-color: var(--red);
-    background: var(--red-bg);
-  }
-  .reminder-label { font-size: 14px; color: var(--ink-soft); margin-bottom: 2px; }
-  .reminder-time { font-size: 20px; font-weight: 700; }
-  .reminder-card.overdue .reminder-time { color: var(--red-dark); }
-  .edit-time-btn {
-    background: var(--bg);
-    border: 2px solid var(--line);
-    color: var(--ink);
-    border-radius: 10px;
-    padding: 10px 14px;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    font-family: inherit;
-  }
-  .overdue-banner {
-    display: none;
-    width: 100%;
-    background: var(--red);
-    color: white;
     text-align: center;
-    font-weight: 700;
-    font-size: 15px;
-    padding: 10px 14px;
-    border-radius: 12px;
-    margin-bottom: 16px;
   }
-  .overdue-banner.show { display: block; }
+  .info-card .info-label { font-size: 14px; color: var(--ink-soft); margin-bottom: 2px; }
+  .info-card .info-value { font-size: 17px; font-weight: 700; }
 
   .share-section {
     width: 100%;
@@ -441,7 +427,7 @@
         <button class="banner-btn" id="addFirstContactBtn">+ Add someone</button>
       </div>
 
-      <div class="overdue-banner" id="overdueBanner">It's past your check-in time</div>
+      <div class="status-banner" id="statusBanner"></div>
       <div class="status-line" id="statusLine">Press the button to let your people know you're okay.</div>
 
       <div class="button-wrap">
@@ -455,12 +441,10 @@
       </div>
 
      <p class="instructions" id="instructions">One press sends a message to the people you've added under Contacts. No apps to open, nothing else to remember.</p>
-      <div class="reminder-card" id="reminderCard">
-        <div>
-          <div class="reminder-label">Daily check-in time</div>
-          <div class="reminder-time" id="reminderTimeDisplay">9:00 AM</div>
-        </div>
-        <button class="edit-time-btn" id="editTimeBtn">Change</button>
+
+      <div class="info-card">
+        <div class="info-label">How it works</div>
+        <div class="info-value">Press "I'm OK" any time — up to 3 times a day</div>
       </div>
 
       <div class="share-section">
@@ -513,18 +497,6 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="timeModalOverlay">
-  <div class="modal">
-    <h3>Set daily check-in time</h3>
-    <label for="timeInput">What time should the reminder be?</label>
-    <input type="time" id="timeInput">
-    <div class="modal-actions">
-      <button class="cancel" id="cancelTimeModal">Cancel</button>
-      <button class="save" id="saveTimeModal">Save</button>
-    </div>
-  </div>
-</div>
-
 <script>
   // This has to match the APP_SHARED_SECRET environment variable set in Netlify.
   // It's visible to anyone who views this page's source — that's unavoidable for
@@ -532,6 +504,7 @@
   // never load the page at all.
   const APP_SECRET = 'd24a994e38134d02da9f2e877b019f6b67236a766185b1bc03689cf838735e86';
   const PENDING_TIMEOUT_MS = 48 * 60 * 60 * 1000; // 48 hours
+  const WINDOW_MS = 24 * 60 * 60 * 1000; // matches WINDOW_HOURS in send-checkin.js
 
   // --- User identity (ties each phone/browser to its saved data) ---
   function getUserId() {
@@ -557,6 +530,7 @@
   const confirmHeadline = document.getElementById('confirmHeadline');
   const confirmSub = document.getElementById('confirmSub');
   const statusLine = document.getElementById('statusLine');
+  const statusBanner = document.getElementById('statusBanner');
   const instructions = document.getElementById('instructions');
   const contactList = document.getElementById('contactList');
   const addContactBtn = document.getElementById('addContactBtn');
@@ -571,12 +545,15 @@
   const addFirstContactBtn = document.getElementById('addFirstContactBtn');
 
   // --- Save/load from server storage ---
+  // Note: checkInHour/checkInMinute are no longer used — Option A moved to a
+  // rolling 24-hour window (already enforced server-side in send-checkin.js
+  // and check-missed-checkins.js). We stop sending/reading a fixed clock time.
   async function saveUserData() {
     try {
       await fetch(`/.netlify/functions/user-data?userId=${encodeURIComponent(userId)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contacts, checkInHour, checkInMinute, ownerName }),
+        body: JSON.stringify({ contacts, ownerName }),
       });
     } catch (err) {
       console.error('Save failed', err);
@@ -588,8 +565,6 @@
       const res = await fetch(`/.netlify/functions/user-data?userId=${encodeURIComponent(userId)}`);
       const data = await res.json();
       contacts = data.contacts || [];
-      checkInHour = (typeof data.checkInHour === 'number') ? data.checkInHour : 9;
-      checkInMinute = (typeof data.checkInMinute === 'number') ? data.checkInMinute : 0;
       ownerName = data.ownerName || '';
     } catch (err) {
       console.error('Load failed', err);
@@ -597,7 +572,7 @@
     }
     ownerNameInput.value = ownerName;
     renderContacts();
-    renderReminder();
+    renderStatus();
     updateNoContactsBanner();
   }
 
@@ -756,7 +731,21 @@
     saveUserData();
   });
 
-  let checkedInToday = false;
+  // --- Rolling-window status (Option A) ---
+  // Tracked locally per-device since the server's source of truth
+  // (checkin-send-log) isn't exposed via a read endpoint yet. The real
+  // enforcement (3-per-24h limit, missed-checkin alerts) always happens
+  // server-side regardless of what this device remembers.
+  function getLocalCheckinState() {
+    try {
+      return JSON.parse(localStorage.getItem('checkinState') || 'null') || {};
+    } catch (e) {
+      return {};
+    }
+  }
+  function setLocalCheckinState(state) {
+    localStorage.setItem('checkinState', JSON.stringify(state));
+  }
 
   // Builds the message text sent to confirmed contacts, using the
   // saved owner name when available so contacts know who checked in.
@@ -780,6 +769,37 @@
     }
     const dateStr = nextTime.toLocaleDateString([], { month: 'short', day: 'numeric' });
     return `You can check in again on ${dateStr} at ${timeStr}.`;
+  }
+
+  function formatRelativeTime(ts) {
+    const mins = Math.round((Date.now() - ts) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
+    const hrs = Math.round(mins / 60);
+    return `${hrs} hour${hrs === 1 ? '' : 's'} ago`;
+  }
+
+  // Reflects the last known outcome on this device — no fixed clock time
+  // involved. Called after every check-in attempt and on page load.
+  function renderStatus() {
+    const state = getLocalCheckinState();
+
+    if (state.limitReachedUntil && Date.now() < state.limitReachedUntil) {
+      statusLine.textContent = '';
+      statusBanner.textContent = `You're all set — ${formatNextAllowed(new Date(state.limitReachedUntil).toISOString())}`;
+      statusBanner.className = 'status-banner limit show';
+      return;
+    }
+
+    if (state.lastCheckInAt && Date.now() - state.lastCheckInAt < WINDOW_MS) {
+      statusLine.textContent = '';
+      statusBanner.textContent = `You're checked in for today ✅ (last check-in ${formatRelativeTime(state.lastCheckInAt)})`;
+      statusBanner.className = 'status-banner good show';
+      return;
+    }
+
+    statusBanner.classList.remove('show');
+    statusLine.textContent = "Press the button to let your people know you're okay.";
   }
 
   pressBtn.addEventListener('click', async () => {
@@ -820,9 +840,8 @@
       const data = await res.json();
 
       if (res.ok) {
-        checkedInToday = true;
-        overdueBanner.classList.remove('show');
-        reminderCard.classList.remove('overdue');
+        setLocalCheckinState({ lastCheckInAt: Date.now(), limitReachedUntil: null });
+        renderStatus();
         confirmHeadline.textContent = "Sent!";
         confirmSub.textContent = `${names} ${confirmedContacts.length > 1 ? 'have' : 'has'} been notified. (${time})`;
         if (typeof data.sendsRemaining === 'number' && data.sendsRemaining <= 1 && data.sendsRemaining >= 0) {
@@ -831,7 +850,9 @@
             : ' (That was your last check-in for today.)';
         }
       } else if (res.status === 429) {
-        checkedInToday = true;
+        const untilMs = data.nextAllowedAt ? new Date(data.nextAllowedAt).getTime() : (Date.now() + WINDOW_MS);
+        setLocalCheckinState({ lastCheckInAt: Date.now(), limitReachedUntil: untilMs });
+        renderStatus();
         confirmHeadline.textContent = "Check-in limit reached";
         confirmSub.textContent = data.nextAllowedAt
           ? `You've reached today's check-in limit. ${formatNextAllowed(data.nextAllowedAt)}`
@@ -851,48 +872,7 @@
     }
   });
 
-  // --- Daily check-in time ---
-  const reminderCard = document.getElementById('reminderCard');
-  const reminderTimeDisplay = document.getElementById('reminderTimeDisplay');
-  const overdueBanner = document.getElementById('overdueBanner');
-  const editTimeBtn = document.getElementById('editTimeBtn');
-  const timeModalOverlay = document.getElementById('timeModalOverlay');
-  const timeInput = document.getElementById('timeInput');
-  const cancelTimeModal = document.getElementById('cancelTimeModal');
-  const saveTimeModal = document.getElementById('saveTimeModal');
-
-  let checkInHour = 9, checkInMinute = 0;
-
-  function formatTime(h, m) {
-    const period = h >= 12 ? 'PM' : 'AM';
-    const h12 = ((h % 12) || 12);
-    return `${h12}:${String(m).padStart(2, '0')} ${period}`;
-  }
-
-  function renderReminder() {
-    reminderTimeDisplay.textContent = formatTime(checkInHour, checkInMinute);
-    const now = new Date();
-    const isOverdue = !checkedInToday &&
-      (now.getHours() > checkInHour || (now.getHours() === checkInHour && now.getMinutes() >= checkInMinute));
-    overdueBanner.classList.toggle('show', isOverdue);
-    reminderCard.classList.toggle('overdue', isOverdue);
-  }
-
-  editTimeBtn.addEventListener('click', () => {
-    timeInput.value = `${String(checkInHour).padStart(2, '0')}:${String(checkInMinute).padStart(2, '0')}`;
-    timeModalOverlay.classList.add('show');
-  });
-  cancelTimeModal.addEventListener('click', () => timeModalOverlay.classList.remove('show'));
-  saveTimeModal.addEventListener('click', () => {
-    if (!timeInput.value) return;
-    const [h, m] = timeInput.value.split(':').map(Number);
-    checkInHour = h; checkInMinute = m;
-    timeModalOverlay.classList.remove('show');
-    renderReminder();
-    saveUserData();
-  });
-
-  setInterval(renderReminder, 30000);
+  setInterval(renderStatus, 30000);
   setInterval(renderContacts, 60000); // keeps Pending -> No response timing fresh if left open
 
   // --- Get this on your phone ---
@@ -911,7 +891,7 @@
     homeScreenSteps.classList.toggle('show');
   });
 
-  // Load this person's saved contacts, name, and check-in time when the page opens
+  // Load this person's saved contacts and name when the page opens
   loadUserData();
 </script>
 </body>
