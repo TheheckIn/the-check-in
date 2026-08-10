@@ -1,6 +1,11 @@
 // netlify/functions/check-missed-checkins.js
 //
-// Scheduled function (runs daily at 13:00 UTC — see exports.config below).
+// Scheduled function (runs hourly, on the hour — see exports.config below).
+// Running hourly (rather than once a day) keeps the alert delay close to
+// the actual 24-hour threshold — worst case ~1 hour late — instead of the
+// up-to-48-hour gap a once-daily check could produce depending on what
+// time of day someone's last check-in happened to land.
+//
 // Looks at every user's most recent successful check-in send. If it's been
 // more than MISSED_THRESHOLD_HOURS since that check-in, this sends a short
 // alert SMS to that user's CONFIRMED contacts letting them know.
@@ -98,4 +103,67 @@ exports.handler = async (event) => {
         : "The Check In alert: someone who has you listed as a check-in contact hasn't checked in for over 24 hours. You may want to reach out to them.";
 
       const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
-      const
+      const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
+
+      const results = await Promise.all(
+        confirmedContacts.map(async (contact) => {
+          const toNumber = normalizePhone(contact.phone);
+          if (!toNumber) return { phone: contact.phone, success: false, error: 'Invalid phone number.' };
+          try {
+            const params = new URLSearchParams({
+              To: toNumber,
+              From: TWILIO_PHONE_NUMBER,
+              Body: message,
+            });
+            const res = await fetch(url, {
+              method: 'POST',
+              headers: {
+                Authorization: `Basic ${auth}`,
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: params.toString(),
+            });
+            const data = await res.json();
+            if (!res.ok) return { phone: toNumber, success: false, error: data.message || 'Twilio error.' };
+            return { phone: toNumber, success: true, sid: data.sid };
+          } catch (err) {
+            return { phone: toNumber, success: false, error: err.message };
+          }
+        })
+      );
+
+      const anySucceeded = results.some((r) => r.success);
+      if (anySucceeded) {
+        await missedAlertsStore.setJSON(userId, {
+          alertedForCheckIn: lastCheckIn,
+          alertSentAt: now,
+        });
+        summary.alerted += 1;
+      } else {
+        summary.errors += 1;
+        console.error(`All missed-checkin alerts failed for user ${userId}:`, results);
+      }
+    } catch (err) {
+      summary.errors += 1;
+      console.error(`Error processing missed-checkin for user ${userId}:`, err);
+    }
+  }
+
+  console.log('Missed check-in run summary:', JSON.stringify(summary));
+  return { statusCode: 200, body: JSON.stringify(summary) };
+};
+
+// Runs hourly, on the hour.
+exports.config = {
+  schedule: '0 * * * *',
+};
+
+// Converts a loosely formatted US number like "(765) 555-0142" into E.164 format "+17655550142"
+function normalizePhone(raw) {
+  if (!raw) return null;
+  const digits = raw.replace(/[^\d+]/g, '');
+  if (digits.startsWith('+')) return digits;
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  return null;
+}
