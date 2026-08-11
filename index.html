@@ -121,7 +121,7 @@
     font-family: inherit;
   }
 
-  /* Checked-in-today banner — replaces the old fixed-time "overdue" banner */
+  /* Checked-in-today banner */
   .status-banner {
     display: none;
     width: 100%;
@@ -214,7 +214,6 @@
   }
   footer a { color: var(--ink-soft); }
 
-  /* Soft, display-only info card — no editable time, no logic tied to it */
   .info-card {
     width: 100%;
     background: var(--panel);
@@ -504,7 +503,15 @@
   // never load the page at all.
   const APP_SECRET = 'd24a994e38134d02da9f2e877b019f6b67236a766185b1bc03689cf838735e86';
   const PENDING_TIMEOUT_MS = 48 * 60 * 60 * 1000; // 48 hours
-  const WINDOW_MS = 24 * 60 * 60 * 1000; // matches WINDOW_HOURS in send-checkin.js
+  const RESET_TIMEZONE = 'America/New_York';
+  const MAX_SENDS_PER_DAY = 3;
+
+  // Returns a stable "YYYY-MM-DD" string for "now" in US/Eastern time.
+  // Matches the same logic used server-side in send-checkin.js, so the
+  // client's idea of "today" always agrees with the server's.
+  function easternDateString(ts) {
+    return new Date(ts).toLocaleDateString('en-CA', { timeZone: RESET_TIMEZONE });
+  }
 
   // --- User identity (ties each phone/browser to its saved data) ---
   function getUserId() {
@@ -544,10 +551,6 @@
   const noContactsBanner = document.getElementById('noContactsBanner');
   const addFirstContactBtn = document.getElementById('addFirstContactBtn');
 
-  // --- Save/load from server storage ---
-  // Note: checkInHour/checkInMinute are no longer used — Option A moved to a
-  // rolling 24-hour window (already enforced server-side in send-checkin.js
-  // and check-missed-checkins.js). We stop sending/reading a fixed clock time.
   async function saveUserData() {
     try {
       await fetch(`/.netlify/functions/user-data?userId=${encodeURIComponent(userId)}`, {
@@ -604,7 +607,6 @@
     if (c.status === 'declined') {
       return { label: 'Declined', className: 'declined', showResend: false };
     }
-    // status is 'pending' (or missing, for safety)
     const sentAt = c.optInSentAt || 0;
     const isStale = Date.now() - sentAt > PENDING_TIMEOUT_MS;
     if (isStale) {
@@ -731,16 +733,21 @@
     saveUserData();
   });
 
-  // --- Rolling-window status (Option A) ---
-  // Tracked locally per-device since the server's source of truth
-  // (checkin-send-log) isn't exposed via a read endpoint yet. The real
-  // enforcement (3-per-24h limit, missed-checkin alerts) always happens
-  // server-side regardless of what this device remembers.
+  // --- Daily check-in count (Eastern calendar day) ---
+  // Tracked locally per-device purely for display between page loads — the
+  // real enforcement (3-per-day limit, resetting at midnight Eastern)
+  // always happens server-side in send-checkin.js regardless of what this
+  // device remembers. If the stored date doesn't match today's Eastern
+  // date, the local count is treated as 0 automatically.
   function getLocalCheckinState() {
     try {
-      return JSON.parse(localStorage.getItem('checkinState') || 'null') || {};
+      const state = JSON.parse(localStorage.getItem('checkinState') || 'null') || {};
+      if (state.dateStr !== easternDateString(Date.now())) {
+        return { dateStr: easternDateString(Date.now()), count: 0 };
+      }
+      return state;
     } catch (e) {
-      return {};
+      return { dateStr: easternDateString(Date.now()), count: 0 };
     }
   }
   function setLocalCheckinState(state) {
@@ -757,43 +764,29 @@
     return "This is my daily check-in from The Check In app — I'm okay!";
   }
 
-  // Formats the server's nextAllowedAt timestamp into a friendly,
-  // accurate string instead of a vague "try again tomorrow."
-  function formatNextAllowed(nextAllowedAtIso) {
-    const nextTime = new Date(nextAllowedAtIso);
-    const now = new Date();
-    const timeStr = nextTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    const sameDay = nextTime.toDateString() === now.toDateString();
-    if (sameDay) {
-      return `You can check in again at ${timeStr}.`;
-    }
-    const dateStr = nextTime.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    return `You can check in again on ${dateStr} at ${timeStr}.`;
+  function ordinal(n) {
+    if (n === 1) return '1st';
+    if (n === 2) return '2nd';
+    if (n === 3) return '3rd';
+    return `${n}th`;
   }
 
-  function formatRelativeTime(ts) {
-    const mins = Math.round((Date.now() - ts) / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
-    const hrs = Math.round(mins / 60);
-    return `${hrs} hour${hrs === 1 ? '' : 's'} ago`;
-  }
-
-  // Reflects the last known outcome on this device — no fixed clock time
-  // involved. Called after every check-in attempt and on page load.
+  // Reflects today's check-in count on this device. No cooldown timer,
+  // no "next allowed" time — just how many of today's (up to 3) check-ins
+  // have been used, resetting automatically at midnight Eastern.
   function renderStatus() {
     const state = getLocalCheckinState();
 
-    if (state.limitReachedUntil && Date.now() < state.limitReachedUntil) {
+    if (state.count >= MAX_SENDS_PER_DAY) {
       statusLine.textContent = '';
-      statusBanner.textContent = `You're all set — ${formatNextAllowed(new Date(state.limitReachedUntil).toISOString())}`;
+      statusBanner.textContent = "You've used all 3 check-ins for today — resets at midnight.";
       statusBanner.className = 'status-banner limit show';
       return;
     }
 
-    if (state.lastCheckInAt && Date.now() - state.lastCheckInAt < WINDOW_MS) {
+    if (state.count > 0) {
       statusLine.textContent = '';
-      statusBanner.textContent = `You're checked in for today ✅ (last check-in ${formatRelativeTime(state.lastCheckInAt)})`;
+      statusBanner.textContent = `You're checked in for today ✅ (${ordinal(state.count)} check-in — ${MAX_SENDS_PER_DAY - state.count} left today)`;
       statusBanner.className = 'status-banner good show';
       return;
     }
@@ -840,23 +833,24 @@
       const data = await res.json();
 
       if (res.ok) {
-        setLocalCheckinState({ lastCheckInAt: Date.now(), limitReachedUntil: null });
+        const dateStr = easternDateString(Date.now());
+        const count = typeof data.checkinNumber === 'number' ? data.checkinNumber : (getLocalCheckinState().count + 1);
+        setLocalCheckinState({ dateStr, count });
         renderStatus();
         confirmHeadline.textContent = "Sent!";
         confirmSub.textContent = `${names} ${confirmedContacts.length > 1 ? 'have' : 'has'} been notified. (${time})`;
-        if (typeof data.sendsRemaining === 'number' && data.sendsRemaining <= 1 && data.sendsRemaining >= 0) {
-          confirmSub.textContent += data.sendsRemaining === 1
-            ? ' (1 check-in left today.)'
-            : ' (That was your last check-in for today.)';
+        if (count === 1) {
+          confirmSub.textContent += " You're all set for now.";
+        } else if (count === MAX_SENDS_PER_DAY) {
+          confirmSub.textContent += ` This was your ${ordinal(count)} and final check-in today.`;
+        } else if (count > 0) {
+          confirmSub.textContent += ` This was your ${ordinal(count)} check-in today.`;
         }
       } else if (res.status === 429) {
-        const untilMs = data.nextAllowedAt ? new Date(data.nextAllowedAt).getTime() : (Date.now() + WINDOW_MS);
-        setLocalCheckinState({ lastCheckInAt: Date.now(), limitReachedUntil: untilMs });
+        setLocalCheckinState({ dateStr: easternDateString(Date.now()), count: MAX_SENDS_PER_DAY });
         renderStatus();
         confirmHeadline.textContent = "Check-in limit reached";
-        confirmSub.textContent = data.nextAllowedAt
-          ? `You've reached today's check-in limit. ${formatNextAllowed(data.nextAllowedAt)}`
-          : "You've already sent a few check-ins today — try again later.";
+        confirmSub.textContent = "You've used all 3 check-ins for today — it resets at midnight.";
       } else {
         const failed = (data.results || []).filter(r => !r.success).map(r => r.name);
         confirmHeadline.textContent = "Some messages didn't send";
