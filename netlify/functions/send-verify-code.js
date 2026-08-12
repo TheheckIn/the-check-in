@@ -1,6 +1,5 @@
 // netlify/functions/send-verify-code.js
 const { getStore } = require('@netlify/blobs');
-const twilio = require('twilio');
 
 const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH = process.env.TWILIO_AUTH_TOKEN;
@@ -69,13 +68,28 @@ exports.handler = async (event) => {
 
   await store.set(phone, JSON.stringify(record));
 
+  const auth = Buffer.from(`${TWILIO_SID}:${TWILIO_AUTH}`).toString('base64');
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`;
+
   try {
-    const client = twilio(TWILIO_SID, TWILIO_AUTH);
-    await client.messages.create({
-      body: `Your The Check In verification code is ${code}. It expires in 10 minutes.`,
-      from: TWILIO_FROM,
-      to: phone,
+    const params = new URLSearchParams({
+      To: phone,
+      From: TWILIO_FROM,
+      Body: `Your The Check In verification code is ${code}. It expires in 10 minutes.`,
     });
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      console.error('Twilio send error:', data);
+      return { statusCode: 502, body: JSON.stringify({ error: data.message || 'Failed to send verification text.' }) };
+    }
   } catch (err) {
     console.error('Twilio send error:', err);
     return { statusCode: 502, body: JSON.stringify({ error: 'Failed to send verification text.' }) };
