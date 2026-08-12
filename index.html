@@ -409,6 +409,46 @@
   .modal-actions .cancel { background: var(--bg); color: var(--ink-soft); }
   .modal-actions .save { background: var(--ink); color: white; }
   .modal-actions .save:disabled { opacity: 0.6; cursor: default; }
+
+  /* --- Phone verification --- */
+  .verify-overlay {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 20;
+  }
+  .verify-overlay.show { display: flex; }
+  .verify-step { display: none; }
+  .verify-step.active { display: block; }
+  .verify-brand {
+    text-align: center;
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: 1px;
+    margin-bottom: 24px;
+  }
+  .verify-sub {
+    color: var(--ink-soft);
+    font-size: 15px;
+    line-height: 1.4;
+    margin: 6px 0 0;
+  }
+  .verify-resend {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-size: 14px;
+    text-decoration: underline;
+    cursor: pointer;
+    font-family: inherit;
+    margin-top: 14px;
+    padding: 0;
+  }
+  .verify-resend:disabled { text-decoration: none; cursor: default; opacity: 0.6; }
+  .modal-actions .save.verify-primary { background: var(--red); }
 </style>
 </head>
 <body>
@@ -496,6 +536,37 @@
   </div>
 </div>
 
+<div class="verify-overlay" id="verifyOverlay">
+  <div class="modal">
+    <div class="verify-brand">THE CHECK IN</div>
+
+    <!-- Step 1: enter phone -->
+    <div class="verify-step active" id="verifyStepPhone">
+      <h3>Verify your number</h3>
+      <p class="verify-sub">This is how we find your check-in list if you switch phones or clear your browser. We'll text you a 6-digit code.</p>
+      <label for="verifyPhoneInput">Your phone number</label>
+      <input type="tel" id="verifyPhoneInput" placeholder="e.g. (765) 555-0100">
+      <div class="modal-error" id="verifyPhoneError"></div>
+      <div class="modal-actions">
+        <button class="save verify-primary" id="sendCodeBtn">Send code</button>
+      </div>
+    </div>
+
+    <!-- Step 2: enter code -->
+    <div class="verify-step" id="verifyStepCode">
+      <h3>Enter your code</h3>
+      <p class="verify-sub" id="verifyCodeSentTo">We texted a code to your number.</p>
+      <label for="verifyCodeInput">6-digit code</label>
+      <input type="text" id="verifyCodeInput" inputmode="numeric" maxlength="6" placeholder="123456">
+      <div class="modal-error" id="verifyCodeError"></div>
+      <div class="modal-actions">
+        <button class="save verify-primary" id="submitCodeBtn">Verify</button>
+      </div>
+      <button class="verify-resend" id="resendCodeBtn">Didn't get it? Resend code</button>
+    </div>
+  </div>
+</div>
+
 <script>
   // This has to match the APP_SHARED_SECRET environment variable set in Netlify.
   // It's visible to anyone who views this page's source — that's unavoidable for
@@ -523,6 +594,139 @@
     return id;
   }
   const userId = getUserId();
+
+  // --- Phone verification (identity recovery layer) ---
+  const PHONE_VERIFIED_KEY = 'checkinPhoneVerified';
+  const VERIFIED_PHONE_KEY = 'checkinVerifiedPhone';
+
+  const verifyOverlay = document.getElementById('verifyOverlay');
+  const verifyStepPhone = document.getElementById('verifyStepPhone');
+  const verifyStepCode = document.getElementById('verifyStepCode');
+  const verifyPhoneInput = document.getElementById('verifyPhoneInput');
+  const verifyCodeInput = document.getElementById('verifyCodeInput');
+  const verifyPhoneError = document.getElementById('verifyPhoneError');
+  const verifyCodeError = document.getElementById('verifyCodeError');
+  const verifyCodeSentTo = document.getElementById('verifyCodeSentTo');
+  const sendCodeBtn = document.getElementById('sendCodeBtn');
+  const submitCodeBtn = document.getElementById('submitCodeBtn');
+  const resendCodeBtn = document.getElementById('resendCodeBtn');
+
+  let pendingVerifyPhone = '';
+  let resendCooldown = 0;
+  let resendTimer = null;
+
+  function isPhoneVerified() {
+    return localStorage.getItem(PHONE_VERIFIED_KEY) === 'true';
+  }
+
+  function showVerifyGate() {
+    verifyOverlay.classList.add('show');
+  }
+
+  function hideVerifyGate() {
+    verifyOverlay.classList.remove('show');
+  }
+
+  function startResendCooldown() {
+    resendCooldown = 60;
+    resendCodeBtn.disabled = true;
+    resendCodeBtn.textContent = `Resend code (${resendCooldown}s)`;
+    clearInterval(resendTimer);
+    resendTimer = setInterval(() => {
+      resendCooldown -= 1;
+      if (resendCooldown <= 0) {
+        clearInterval(resendTimer);
+        resendCodeBtn.disabled = false;
+        resendCodeBtn.textContent = "Didn't get it? Resend code";
+      } else {
+        resendCodeBtn.textContent = `Resend code (${resendCooldown}s)`;
+      }
+    }, 1000);
+  }
+
+  async function sendVerifyCode() {
+    const phone = verifyPhoneInput.value.trim();
+    verifyPhoneError.classList.remove('show');
+    verifyPhoneError.textContent = '';
+
+    if (!phone) {
+      verifyPhoneError.textContent = 'Please enter your phone number.';
+      verifyPhoneError.classList.add('show');
+      return;
+    }
+
+    sendCodeBtn.disabled = true;
+    try {
+      const res = await fetch('/.netlify/functions/send-verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone })
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        verifyPhoneError.textContent = result.error || 'Could not send code. Try again.';
+        verifyPhoneError.classList.add('show');
+        return;
+      }
+      pendingVerifyPhone = phone;
+      verifyCodeSentTo.textContent = `We texted a code to ${phone}.`;
+      verifyStepPhone.classList.remove('active');
+      verifyStepCode.classList.add('active');
+      verifyCodeInput.value = '';
+      verifyCodeInput.focus();
+      startResendCooldown();
+    } catch (err) {
+      verifyPhoneError.textContent = 'Network error. Check your connection and try again.';
+      verifyPhoneError.classList.add('show');
+    } finally {
+      sendCodeBtn.disabled = false;
+    }
+  }
+
+  async function submitVerifyCode() {
+    const code = verifyCodeInput.value.trim();
+    verifyCodeError.classList.remove('show');
+    verifyCodeError.textContent = '';
+
+    if (!code) {
+      verifyCodeError.textContent = 'Please enter the code we texted you.';
+      verifyCodeError.classList.add('show');
+      return;
+    }
+
+    submitCodeBtn.disabled = true;
+    try {
+      const res = await fetch('/.netlify/functions/verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: pendingVerifyPhone, code, userId })
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        verifyCodeError.textContent = result.error || 'Incorrect code.';
+        verifyCodeError.classList.add('show');
+        return;
+      }
+      // Persist verification. If this phone was already linked to a
+      // different (older) userId, adopt that one so contacts/history
+      // come back — then reload so everything re-initializes cleanly.
+      localStorage.setItem('checkinUserId', result.userId);
+      localStorage.setItem(PHONE_VERIFIED_KEY, 'true');
+      localStorage.setItem(VERIFIED_PHONE_KEY, result.phone);
+      window.location.reload();
+    } catch (err) {
+      verifyCodeError.textContent = 'Network error. Check your connection and try again.';
+      verifyCodeError.classList.add('show');
+    } finally {
+      submitCodeBtn.disabled = false;
+    }
+  }
+
+  sendCodeBtn.addEventListener('click', sendVerifyCode);
+  submitCodeBtn.addEventListener('click', submitVerifyCode);
+  resendCodeBtn.addEventListener('click', sendVerifyCode);
+  verifyPhoneInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendVerifyCode(); });
+  verifyCodeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitVerifyCode(); });
 
   let contacts = [];
   let ownerName = '';
@@ -885,8 +1089,13 @@
     homeScreenSteps.classList.toggle('show');
   });
 
-  // Load this person's saved contacts and name when the page opens
-  loadUserData();
+  // Load this person's saved contacts and name when the page opens —
+  // but only after they've verified their phone number at least once.
+  if (isPhoneVerified()) {
+    loadUserData();
+  } else {
+    showVerifyGate();
+  }
 </script>
 </body>
 </html>
