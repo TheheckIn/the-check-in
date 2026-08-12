@@ -539,6 +539,7 @@
 <div class="verify-overlay" id="verifyOverlay">
   <div class="modal">
     <div class="verify-brand">THE CHECK IN</div>
+    <p style="text-align:center; font-size:11px; color:#999; word-break:break-all; margin-top:-12px;">debug id: <span id="debugUserId"></span></p>
 
     <!-- Step 1: enter phone -->
     <div class="verify-step active" id="verifyStepPhone">
@@ -620,6 +621,8 @@
   }
 
   function showVerifyGate() {
+    const debugEl = document.getElementById('debugUserId');
+    if (debugEl) debugEl.textContent = userId;
     verifyOverlay.classList.add('show');
   }
 
