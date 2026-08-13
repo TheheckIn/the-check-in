@@ -22,10 +22,20 @@ exports.handler = async (event) => {
 
   if (event.httpMethod === 'GET') {
     const data = await store.get(userId, { type: 'json' });
+
+    // Also look up their most recent successful check-in send, so the
+    // frontend can show "Last checked in: ..." on the home screen.
+    const sendLogStore = getConfiguredStore('checkin-send-log');
+    const sendHistory = (await sendLogStore.get(userId, { type: 'json' })) || [];
+    const lastCheckIn = sendHistory.length > 0 ? Math.max(...sendHistory) : null;
+
     return {
       statusCode: 200,
       headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify(data || { contacts: [], checkInHour: 9, checkInMinute: 0 }),
+      body: JSON.stringify({
+        ...(data || { contacts: [], checkInHour: 9, checkInMinute: 0 }),
+        lastCheckIn,
+      }),
     };
   }
 
