@@ -1,7 +1,7 @@
 // netlify/functions/check-missed-checkins.js
 //
-// Scheduled function (runs hourly, on the hour — see exports.config below).
-// Running hourly (rather than once a day) keeps the alert delay close to
+// Scheduled function (runs hourly, on the hour — via the schedule() wrapper
+// below). Running hourly (rather than once a day) keeps the alert delay close to
 // the actual 24-hour threshold — worst case ~1 hour late — instead of the
 // up-to-48-hour gap a once-daily check could produce depending on what
 // time of day someone's last check-in happened to land.
@@ -28,6 +28,7 @@
 // "x-netlify-event: schedule" header. We fail closed if that's missing.
 
 const { getStore } = require('@netlify/blobs');
+const { schedule } = require('@netlify/functions');
 
 const SITE_ORIGIN = 'https://helpful-squirrel-b651a9.netlify.app';
 const MISSED_THRESHOLD_HOURS = 24;
@@ -44,7 +45,7 @@ function getConfiguredStore(name) {
   });
 }
 
-exports.handler = async (event) => {
+exports.handler = schedule('0 * * * *', async (event) => {
   // Fail closed: only proceed if Netlify's scheduler triggered this, not
   // an arbitrary request to the function's public URL.
   if (!event.headers || event.headers['x-netlify-event'] !== 'schedule') {
@@ -151,12 +152,7 @@ exports.handler = async (event) => {
 
   console.log('Missed check-in run summary:', JSON.stringify(summary));
   return { statusCode: 200, body: JSON.stringify(summary) };
-};
-
-// Runs hourly, on the hour.
-exports.config = {
-  schedule: '0 * * * *',
-};
+});
 
 // Converts a loosely formatted US number like "(765) 555-0142" into E.164 format "+17655550142"
 function normalizePhone(raw) {
