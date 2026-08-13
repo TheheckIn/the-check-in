@@ -3,6 +3,19 @@ const { getStore } = require('@netlify/blobs');
 
 const MAX_ATTEMPTS = 5;
 
+// Phone numbers that permanently bypass any future paywall — the 5 sisters
+// plus Addie (niece). Whoever verifies with one of these numbers gets
+// foundingUser: true set on their account, forever, no matter which device
+// or how many times they re-verify.
+const FOUNDING_USER_PHONES = new Set([
+  '+17657144648', // Linda
+  '+13174472083', // Addie
+  '+13174428412', // Barb
+  '+12165334230', // Kathy
+  '+17706864485', // Sally
+  '+19103672518', // Jane
+]);
+
 function normalizePhone(raw) {
   const digits = (raw || '').replace(/[^\d+]/g, '');
   if (digits.startsWith('+')) return digits;
@@ -89,6 +102,26 @@ exports.handler = async (event) => {
     // No existing link and no local userId supplied — create a fresh one.
     userId = `user_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     await indexStore.set(phone, userId);
+  }
+
+  // If this phone belongs to a founding user, make sure their account is
+  // permanently flagged — merge into whatever record already exists rather
+  // than overwriting it, so contacts/history are never touched.
+  if (FOUNDING_USER_PHONES.has(phone)) {
+    const usersStore = getStore({
+      name: 'checkin-users',
+      siteID: process.env.NETLIFY_SITE_ID,
+      token: process.env.NETLIFY_API_TOKEN,
+    });
+    const existingData = (await usersStore.get(userId, { type: 'json' })) || {
+      contacts: [],
+      checkInHour: 9,
+      checkInMinute: 0,
+    };
+    if (!existingData.foundingUser) {
+      existingData.foundingUser = true;
+      await usersStore.setJSON(userId, existingData);
+    }
   }
 
   return {
