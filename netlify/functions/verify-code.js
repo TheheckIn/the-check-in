@@ -14,6 +14,7 @@ const FOUNDING_USER_PHONES = new Set([
   '+12165334230', // Kathy
   '+17706864485', // Sally
   '+19103672518', // Jane
+  '+17702894666', // Robert (owner)
 ]);
 
 function normalizePhone(raw) {
