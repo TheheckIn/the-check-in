@@ -456,6 +456,7 @@
   <header>
     <div class="brand">The Check In</div>
     <button class="settings-btn" id="settingsBtn" aria-label="Manage contacts"><span class="gear-icon">&#9881;</span> Contacts</button>
+    <button class="settings-btn" id="subscribeBtn" aria-label="Subscribe" style="margin-left:8px;">Subscribe — $2.99/mo</button>
   </header>
 
   <main>
@@ -1096,6 +1097,32 @@
   } else {
     showVerifyGate();
   }
+const subscribeBtn = document.getElementById('subscribeBtn');
+    if (subscribeBtn) {
+      subscribeBtn.addEventListener('click', async () => {
+        subscribeBtn.disabled = true;
+        subscribeBtn.textContent = 'Loading...';
+        try {
+          const res = await fetch('/.netlify/functions/create-checkout-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, phoneNumber: window.userPhone || '' })
+          });
+          const data = await res.json();
+          if (data.url) {
+            window.location.href = data.url;
+          } else {
+            alert('Something went wrong starting checkout. Try again.');
+            subscribeBtn.disabled = false;
+            subscribeBtn.textContent = 'Subscribe — $2.99/mo';
+          }
+        } catch (err) {
+          alert('Something went wrong. Check your connection and try again.');
+          subscribeBtn.disabled = false;
+          subscribeBtn.textContent = 'Subscribe — $2.99/mo';
+        }
+      });
+    }
 </script>
 </body>
 </html>
