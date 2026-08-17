@@ -497,7 +497,7 @@
           <button class="share-btn" id="homeScreenBtn">Add to Home Screen</button>
         </div>
         <div class="home-screen-steps" id="homeScreenSteps">
-          On an iPhone: tap the <strong>Share</strong> icon in Safari, then <strong>Add to Home Screen</strong>. On Android: tap the <strong>&#8942;</strong> menu in Chrome, then <strong>Add to Home screen</strong>. It'll sit on the phone like any other app icon — no App Store needed.
+          On an iPhone: tap the <strong>Share</strong> icon in Safari, then <strong>Add to Home Screen</strong>. It'll sit on the phone like any other app icon — no App Store needed.
         </div>
       </div>
     </div>
@@ -1089,8 +1089,42 @@
     window.location.href = `sms:&body=${body}`;
   });
 
-  homeScreenBtn.addEventListener('click', () => {
-    homeScreenSteps.classList.toggle('show');
+  // Register the service worker — required by Chrome/Android before it will
+  // ever offer the one-click install prompt. Safe no-op if unsupported.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+
+  // Chrome/Android/desktop Chrome fire this event when the app becomes
+  // installable. We stash it and use it later to trigger a real one-click
+  // install instead of showing manual steps.
+  let deferredInstallPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+  });
+
+  homeScreenBtn.addEventListener('click', async () => {
+    if (deferredInstallPrompt) {
+      // One-click path: Android / desktop Chrome / Edge
+      deferredInstallPrompt.prompt();
+      const { outcome } = await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      if (outcome === 'accepted') {
+        homeScreenSteps.classList.remove('show');
+      }
+    } else {
+      // Fallback: iOS Safari and any browser that doesn't support
+      // beforeinstallprompt — show the manual steps instead.
+      homeScreenSteps.classList.toggle('show');
+    }
+  });
+
+  // Once installed, there's nothing left to prompt — hide the manual
+  // instructions if they happened to be open.
+  window.addEventListener('appinstalled', () => {
+    homeScreenSteps.classList.remove('show');
+    deferredInstallPrompt = null;
   });
 
   // Load this person's saved contacts and name when the page opens —
