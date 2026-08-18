@@ -31,7 +31,14 @@ const { getStore } = require('@netlify/blobs');
 const { schedule } = require('@netlify/functions');
 
 const SITE_ORIGIN = 'https://helpful-squirrel-b651a9.netlify.app';
-const MISSED_THRESHOLD_HOURS = 24;
+// 30 hours, not 24: the threshold is measured in raw elapsed time, not
+// calendar days, and this function polls hourly. A strict 24-hour cutoff
+// means anyone who checks in even slightly later than the previous day
+// (e.g. 8am Monday, then 9:30am Tuesday — completely normal) gets flagged
+// as "missed" and their contacts get a false alarm. 30 hours gives real
+// daily-timing variance room to breathe while still catching genuine
+// multi-day silence.
+const MISSED_THRESHOLD_HOURS = 30;
 
 // Netlify's automatic Blobs configuration has a known issue where it
 // sometimes fails to detect the site context in production, throwing
