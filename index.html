@@ -820,7 +820,11 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
   }
 
   settingsBtn.addEventListener('click', () => { renderContacts(); showScreen('contactsScreen'); });
-  addFirstContactBtn.addEventListener('click', () => { renderContacts(); showScreen('contactsScreen'); });
+  addFirstContactBtn.addEventListener('click', () => {
+    if (!isPhoneVerified()) { showVerifyGate(); return; }
+    renderContacts();
+    showScreen('contactsScreen');
+  });
   backBtn.addEventListener('click', () => showScreen('homeScreen'));
 
   ownerNameInput.addEventListener('blur', () => {
@@ -899,6 +903,7 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
   }
 
   addContactBtn.addEventListener('click', () => {
+    if (!isPhoneVerified()) { showVerifyGate(); return; }
     if (contacts.length >= 3) return;
     nameInput.value = '';
     phoneInput.value = '';
@@ -1027,6 +1032,8 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
   }
 
   pressBtn.addEventListener('click', async () => {
+    if (!isPhoneVerified()) { showVerifyGate(); return; }
+
     const confirmedContacts = contacts.filter(c => c.status === 'confirmed');
 
     if (contacts.length === 0) {
@@ -1151,11 +1158,15 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
   });
 
   // Load this person's saved contacts and name when the page opens —
-  // but only after they've verified their phone number at least once.
+  // but ONLY if they've already verified their phone. New visitors see
+  // the homepage (How it works, demo, Subscribe button) with no gate at
+  // all. Verification is only requested later, when they actually try
+  // to add a contact or press "I'm OK" — the moments that genuinely need
+  // an identity tied to a phone number.
   if (isPhoneVerified()) {
     loadUserData();
   } else {
-    showVerifyGate();
+    updateNoContactsBanner();
   }
 const subscribeBtn = document.getElementById('subscribeBtn');
     if (subscribeBtn) {
