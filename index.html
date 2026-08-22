@@ -625,6 +625,11 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
   // --- Phone verification (identity recovery layer) ---
   const PHONE_VERIFIED_KEY = 'checkinPhoneVerified';
   const VERIFIED_PHONE_KEY = 'checkinVerifiedPhone';
+  // Set just before showing the verify gate from a specific action (e.g.
+  // "subscribe") so that once verification completes and the page reloads,
+  // we know to automatically resume that action instead of just landing
+  // back on the home screen.
+  const PENDING_ACTION_KEY = 'checkinPendingAction';
 
   const verifyOverlay = document.getElementById('verifyOverlay');
   const verifyStepPhone = document.getElementById('verifyStepPhone');
@@ -757,6 +762,11 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
 
   let contacts = [];
   let ownerName = '';
+  // Populated from user-data on load (once phone-verified). One of:
+  // null (unknown/not yet loaded), 'active' (paying subscriber), or
+  // any other value Stripe might set. Drives the Subscribe button's
+  // label/behavior so an existing subscriber is never asked to pay again.
+  let subscriptionStatus = null;
 
   const homeScreen = document.getElementById('homeScreen');
   const contactsScreen = document.getElementById('contactsScreen');
@@ -781,6 +791,25 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
   const ownerNameInput = document.getElementById('ownerNameInput');
   const noContactsBanner = document.getElementById('noContactsBanner');
   const addFirstContactBtn = document.getElementById('addFirstContactBtn');
+  const subscribeBtn = document.getElementById('subscribeBtn');
+
+  // Reflects subscriptionStatus in the Subscribe button. Called after
+  // user-data loads (verified users) and once up front for unverified
+  // visitors, so the button always matches what we actually know.
+  function updateSubscribeButtonUI() {
+    if (!subscribeBtn) return;
+    if (subscriptionStatus === 'active') {
+      subscribeBtn.textContent = "You're subscribed ✓";
+      subscribeBtn.disabled = true;
+      subscribeBtn.style.opacity = '0.7';
+      subscribeBtn.style.cursor = 'default';
+    } else {
+      subscribeBtn.textContent = 'Subscribe — $2.99/mo';
+      subscribeBtn.disabled = false;
+      subscribeBtn.style.opacity = '1';
+      subscribeBtn.style.cursor = 'pointer';
+    }
+  }
 
   async function saveUserData() {
     try {
@@ -800,6 +829,7 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
       const data = await res.json();
       contacts = data.contacts || [];
       ownerName = data.ownerName || '';
+      subscriptionStatus = data.subscriptionStatus || null;
     } catch (err) {
       console.error('Load failed', err);
       contacts = [];
@@ -808,6 +838,7 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
     renderContacts();
     renderStatus();
     updateNoContactsBanner();
+    updateSubscribeButtonUI();
   }
 
   function showScreen(id) {
@@ -1157,43 +1188,76 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
     deferredInstallPrompt = null;
   });
 
+  // --- Subscribe (Stripe Checkout) ---
+  // Kicks off Stripe Checkout using the CURRENT known userId — which, for
+  // a phone-verified visitor, is the real recovered account tied to their
+  // phone number (not a fresh per-device id). Only ever called once we
+  // know isPhoneVerified() is true and subscriptionStatus isn't 'active'.
+  async function startCheckout() {
+    subscribeBtn.disabled = true;
+    subscribeBtn.textContent = 'Loading...';
+    try {
+      const res = await fetch('/.netlify/functions/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          phoneNumber: localStorage.getItem(VERIFIED_PHONE_KEY) || ''
+        })
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert('Something went wrong starting checkout. Try again.');
+        updateSubscribeButtonUI();
+      }
+    } catch (err) {
+      alert('Something went wrong. Check your connection and try again.');
+      updateSubscribeButtonUI();
+    }
+  }
+
+  if (subscribeBtn) {
+    subscribeBtn.addEventListener('click', async () => {
+      // Already a subscriber on this recovered account — nothing to do.
+      // (Button is disabled in this state too; this is just a safety net.)
+      if (subscriptionStatus === 'active') return;
+
+      // Not yet identified — verify phone first so checkout uses the
+      // correct, recoverable account instead of a fresh per-device id.
+      // Flag which action to resume once verification finishes and the
+      // page reloads.
+      if (!isPhoneVerified()) {
+        sessionStorage.setItem(PENDING_ACTION_KEY, 'subscribe');
+        showVerifyGate();
+        return;
+      }
+
+      await startCheckout();
+    });
+  }
+
   // Load this person's saved contacts and name when the page opens —
   // but ONLY if they've already verified their phone. New visitors see
   // the homepage (How it works, demo, Subscribe button) with no gate at
   // all. Verification is only requested later, when they actually try
-  // to add a contact or press "I'm OK" — the moments that genuinely need
-  // an identity tied to a phone number.
+  // to add a contact, press "I'm OK", or subscribe — the moments that
+  // genuinely need an identity tied to a phone number.
   if (isPhoneVerified()) {
-    loadUserData();
+    loadUserData().then(() => {
+      const pending = sessionStorage.getItem(PENDING_ACTION_KEY);
+      if (pending) {
+        sessionStorage.removeItem(PENDING_ACTION_KEY);
+        if (pending === 'subscribe' && subscriptionStatus !== 'active') {
+          startCheckout();
+        }
+      }
+    });
   } else {
     updateNoContactsBanner();
+    updateSubscribeButtonUI();
   }
-const subscribeBtn = document.getElementById('subscribeBtn');
-    if (subscribeBtn) {
-      subscribeBtn.addEventListener('click', async () => {
-        subscribeBtn.disabled = true;
-        subscribeBtn.textContent = 'Loading...';
-        try {
-          const res = await fetch('/.netlify/functions/create-checkout-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, phoneNumber: window.userPhone || '' })
-          });
-          const data = await res.json();
-          if (data.url) {
-            window.location.href = data.url;
-          } else {
-            alert('Something went wrong starting checkout. Try again.');
-            subscribeBtn.disabled = false;
-            subscribeBtn.textContent = 'Subscribe — $2.99/mo';
-          }
-        } catch (err) {
-          alert('Something went wrong. Check your connection and try again.');
-          subscribeBtn.disabled = false;
-          subscribeBtn.textContent = 'Subscribe — $2.99/mo';
-        }
-      });
-    }
 </script>
 </body>
 </html>
