@@ -767,6 +767,12 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
   // any other value Stripe might set. Drives the Subscribe button's
   // label/behavior so an existing subscriber is never asked to pay again.
   let subscriptionStatus = null;
+  // Separate from subscriptionStatus — set server-side (verify-code.js)
+  // for the permanent free founding-user phones (Robert's sisters, etc.).
+  // Founding users never get a subscriptionStatus of 'active' since they
+  // never pay, so this MUST be checked independently, or they'll be sent
+  // to Stripe checkout by mistake.
+  let isFoundingUser = false;
 
   const homeScreen = document.getElementById('homeScreen');
   const contactsScreen = document.getElementById('contactsScreen');
@@ -798,7 +804,12 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
   // visitors, so the button always matches what we actually know.
   function updateSubscribeButtonUI() {
     if (!subscribeBtn) return;
-    if (subscriptionStatus === 'active') {
+    if (isFoundingUser) {
+      subscribeBtn.textContent = "You're a founding member ✓ (no charge, ever)";
+      subscribeBtn.disabled = true;
+      subscribeBtn.style.opacity = '0.7';
+      subscribeBtn.style.cursor = 'default';
+    } else if (subscriptionStatus === 'active') {
       subscribeBtn.textContent = "You're subscribed ✓";
       subscribeBtn.disabled = true;
       subscribeBtn.style.opacity = '0.7';
@@ -830,6 +841,7 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
       contacts = data.contacts || [];
       ownerName = data.ownerName || '';
       subscriptionStatus = data.subscriptionStatus || null;
+      isFoundingUser = data.foundingUser === true;
     } catch (err) {
       console.error('Load failed', err);
       contacts = [];
@@ -1220,9 +1232,11 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
 
   if (subscribeBtn) {
     subscribeBtn.addEventListener('click', async () => {
-      // Already a subscriber on this recovered account — nothing to do.
-      // (Button is disabled in this state too; this is just a safety net.)
-      if (subscriptionStatus === 'active') return;
+      // Founding user or already a subscriber — nothing to do. (Button is
+      // disabled in both states too; this is just a safety net so a stray
+      // click, or a state change after the page loaded, can never send a
+      // founding user or existing subscriber to Stripe checkout.)
+      if (isFoundingUser || subscriptionStatus === 'active') return;
 
       // Not yet identified — verify phone first so checkout uses the
       // correct, recoverable account instead of a fresh per-device id.
@@ -1249,7 +1263,7 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
       const pending = sessionStorage.getItem(PENDING_ACTION_KEY);
       if (pending) {
         sessionStorage.removeItem(PENDING_ACTION_KEY);
-        if (pending === 'subscribe' && subscriptionStatus !== 'active') {
+        if (pending === 'subscribe' && !isFoundingUser && subscriptionStatus !== 'active') {
           startCheckout();
         }
       }
