@@ -38,6 +38,12 @@ const SITE_ORIGIN = 'https://helpful-squirrel-b651a9.netlify.app';
 // as "missed" and their contacts get a false alarm. 30 hours gives real
 // daily-timing variance room to breathe while still catching genuine
 // multi-day silence.
+//
+// IMPORTANT: the alert message text below references this constant
+// directly rather than spelling out a number — it used to say "24 hours"
+// as a hardcoded string, which silently went stale when this threshold
+// was changed to 30 and kept telling contacts the wrong window. Never
+// hardcode the number in the message again; always interpolate this.
 const MISSED_THRESHOLD_HOURS = 30;
 
 // Netlify's automatic Blobs configuration has a known issue where it
@@ -107,8 +113,8 @@ exports.handler = schedule('0 * * * *', async (event) => {
 
       const displayName = (userData.ownerName && userData.ownerName.trim()) || null;
       const message = displayName
-        ? `The Check In alert: ${displayName} hasn't checked in for over 24 hours. You may want to reach out.`
-        : "The Check In alert: someone who has you listed as a check-in contact hasn't checked in for over 24 hours. You may want to reach out to them.";
+        ? `The Check In alert: ${displayName} hasn't checked in for over ${MISSED_THRESHOLD_HOURS} hours. You may want to reach out.`
+        : `The Check In alert: someone who has you listed as a check-in contact hasn't checked in for over ${MISSED_THRESHOLD_HOURS} hours. You may want to reach out to them.`;
 
       const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
       const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
