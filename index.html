@@ -184,6 +184,14 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
       inset 0 -6px 12px rgba(0,0,0,0.2);
   }
   .big-button:disabled { cursor: default; }
+  .big-button.locked {
+    filter: grayscale(0.7) brightness(1.05);
+    opacity: 0.55;
+    box-shadow:
+      0 14px 0 #9a948a,
+      0 18px 24px rgba(0,0,0,0.15);
+    cursor: not-allowed;
+  }
 
   .ripple {
     position: absolute;
@@ -242,6 +250,52 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
   }
   .info-card .info-label { font-size: 14px; color: var(--ink-soft); margin-bottom: 2px; }
   .info-card .info-value { font-size: 17px; font-weight: 700; }
+
+  /* --- Onboarding (progressive reveal) --- */
+  .onboarding { padding: 20px 24px 4px; }
+  .step-card {
+    background: var(--panel);
+    border: 2px solid var(--line);
+    border-radius: 16px;
+    padding: 18px 20px;
+    max-width: 400px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .step-eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--red);
+    margin-bottom: 6px;
+  }
+  .step-title { font-weight: 700; font-size: 18px; margin-bottom: 6px; }
+  .step-desc { color: var(--ink-soft); font-size: 15px; line-height: 1.5; margin-bottom: 14px; }
+  .step-cta {
+    background: var(--red);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    padding: 14px 24px;
+    font-size: 16px;
+    font-weight: 700;
+    width: 100%;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .step-cta:disabled { opacity: 0.7; cursor: default; }
+  .ready-strip {
+    max-width: 400px;
+    margin: 0 auto;
+    text-align: center;
+    color: var(--green);
+    background: var(--green-bg);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-weight: 700;
+    font-size: 14px;
+  }
 
   .share-section {
     width: 100%;
@@ -474,31 +528,39 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
     <div class="brand">The Check In</div>
     <button class="settings-btn" id="settingsBtn" aria-label="Manage contacts"><span class="gear-icon">&#9881;</span> Contacts</button>
       </header>
-  <div style="padding:20px 24px 4px;">
-<div style="background:var(--panel); border:2px solid var(--line); border-radius:16px; padding:18px 20px; max-width:400px; margin:0 auto; text-align:center;">
-<div style="font-weight:700; font-size:18px; margin-bottom:8px;">How it works</div>
-<div style="color:var(--ink-soft); font-size:15px; line-height:1.5;">Add up to 3 people you trust. Tap "I'm OK" once a day to let them know. Miss a check-in, and we alert them automatically — no app for them to open, nothing for you to remember.</div>
-</div>
-</div>
 
-  <div style="text-align:center; padding:16px 24px;">
-        <button id="subscribeBtn" style="background:var(--red); color:#fff; border:none; border-radius:14px; padding:14px 24px; font-size:16px; font-weight:700; width:100%; max-width:400px; cursor:pointer;">Subscribe — $2.99/mo</button>
-      </div>
+  <div class="onboarding" id="onboardingWrap">
+
+    <!-- Step 1: Subscribe -->
+    <div class="step-card" id="subscribeStep">
+      <div class="step-eyebrow">Step 1 of 2</div>
+      <div class="step-title">Subscribe to get started</div>
+      <div class="step-desc">Add up to 3 people you trust. Miss a check-in and we alert them automatically — nothing for you to remember.</div>
+      <button id="subscribeBtn" class="step-cta" disabled>Subscribe — $2.99/mo</button>
+    </div>
+
+    <!-- Step 2: Add a contact -->
+    <div class="step-card" id="addContactStep" style="display:none;">
+      <div class="step-eyebrow">Step 2 of 2</div>
+      <div class="step-title">Add your first contact</div>
+      <div class="step-desc">Who should hear from you? You can add up to 3 people, any time, from Contacts.</div>
+      <button id="addFirstContactBtn" class="step-cta">+ Add someone</button>
+    </div>
+
+    <!-- Ready -->
+    <div class="ready-strip" id="readyStrip" style="display:none;">You're all set ✓</div>
+
+  </div>
 
   <main>
     <!-- Home screen -->
     <div class="screen active" id="homeScreen">
-      <div class="no-contacts-banner" id="noContactsBanner">
-        <div class="banner-text">Add your first contact to start sending check-ins.</div>
-        <button class="banner-btn" id="addFirstContactBtn">+ Add someone</button>
-      </div>
-
       <div class="status-banner" id="statusBanner"></div>
       <div class="status-line" id="statusLine">Press the button to let your people know you're okay.</div>
 
       <div class="button-wrap">
         <div class="ripple" id="ripple"></div>
-        <button class="big-button" id="pressBtn">I'M&nbsp;OK</button>
+        <button class="big-button locked" id="pressBtn" disabled>I'M&nbsp;OK</button>
       </div>
 
       <div class="confirm-card" id="confirmCard">
@@ -507,11 +569,6 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
       </div>
 
      <p class="instructions" id="instructions">One press sends a message to the people you've added under Contacts. No apps to open, nothing else to remember.</p>
-
-      <div class="info-card">
-        <div class="info-label">How it works</div>
-        <div class="info-value">Press "I'm OK" any time — up to 3 times a day</div>
-      </div>
 
       <div class="share-section">
         <div class="share-title">Get this on your phone</div>
@@ -795,9 +852,11 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
   const cancelModal = document.getElementById('cancelModal');
   const saveModal = document.getElementById('saveModal');
   const ownerNameInput = document.getElementById('ownerNameInput');
-  const noContactsBanner = document.getElementById('noContactsBanner');
   const addFirstContactBtn = document.getElementById('addFirstContactBtn');
   const subscribeBtn = document.getElementById('subscribeBtn');
+  const subscribeStep = document.getElementById('subscribeStep');
+  const addContactStep = document.getElementById('addContactStep');
+  const readyStrip = document.getElementById('readyStrip');
 
   // Reflects subscriptionStatus in the Subscribe button. Called after
   // user-data loads (verified users) and once up front for unverified
@@ -820,6 +879,25 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
       subscribeBtn.style.opacity = '1';
       subscribeBtn.style.cursor = 'pointer';
     }
+  }
+
+  // Drives the progressive-reveal onboarding: exactly one step visible at
+  // a time (Subscribe -> Add a contact -> Ready), and locks the big
+  // "I'M OK" button (dimmed + disabled) until both steps are complete.
+  // Called any time subscriptionStatus, isFoundingUser, or contacts
+  // changes — loadUserData(), after adding/removing a contact, and for
+  // the unverified first-visit state.
+  function renderOnboarding() {
+    const subscribed = isFoundingUser || subscriptionStatus === 'active';
+    const hasContact = contacts.length > 0;
+
+    subscribeStep.style.display = subscribed ? 'none' : 'block';
+    addContactStep.style.display = (subscribed && !hasContact) ? 'block' : 'none';
+    readyStrip.style.display = (subscribed && hasContact) ? 'block' : 'none';
+
+    const unlocked = subscribed && hasContact;
+    pressBtn.disabled = !unlocked;
+    pressBtn.classList.toggle('locked', !unlocked);
   }
 
   async function saveUserData() {
@@ -849,17 +927,13 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
     ownerNameInput.value = ownerName;
     renderContacts();
     renderStatus();
-    updateNoContactsBanner();
     updateSubscribeButtonUI();
+    renderOnboarding();
   }
 
   function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
-  }
-
-  function updateNoContactsBanner() {
-    noContactsBanner.classList.toggle('show', contacts.length === 0);
   }
 
   settingsBtn.addEventListener('click', () => { renderContacts(); showScreen('contactsScreen'); });
@@ -918,7 +992,7 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
       btn.addEventListener('click', () => {
         contacts.splice(Number(btn.dataset.i), 1);
         renderContacts();
-        updateNoContactsBanner();
+        renderOnboarding();
         saveUserData();
       });
     });
@@ -1008,7 +1082,7 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
     contacts.push(newContact);
     modalOverlay.classList.remove('show');
     renderContacts();
-    updateNoContactsBanner();
+    renderOnboarding();
     saveUserData();
   });
 
@@ -1143,7 +1217,7 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
       confirmHeadline.textContent = "Couldn't send";
       confirmSub.textContent = "Check your connection and try again.";
     } finally {
-      pressBtn.disabled = false;
+      renderOnboarding();
     }
   });
 
@@ -1254,7 +1328,7 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
 
   // Load this person's saved contacts and name when the page opens —
   // but ONLY if they've already verified their phone. New visitors see
-  // the homepage (How it works, demo, Subscribe button) with no gate at
+  // the homepage (Subscribe step, demo, big button) with no gate at
   // all. Verification is only requested later, when they actually try
   // to add a contact, press "I'm OK", or subscribe — the moments that
   // genuinely need an identity tied to a phone number.
@@ -1269,8 +1343,8 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
       }
     });
   } else {
-    updateNoContactsBanner();
     updateSubscribeButtonUI();
+    renderOnboarding();
   }
 </script>
 </body>
