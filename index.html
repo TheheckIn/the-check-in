@@ -549,6 +549,9 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
 
     <!-- Ready -->
     <div class="ready-strip" id="readyStrip" style="display:none;">You're all set ✓</div>
+    <div style="text-align:center; margin-top:8px;">
+      <button id="manageSubBtn" style="display:none; background:none; border:none; color:var(--ink-soft); font-size:13px; text-decoration:underline; cursor:pointer; font-family:inherit; padding:4px;">Manage subscription</button>
+    </div>
 
   </div>
 
@@ -857,6 +860,7 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
   const subscribeStep = document.getElementById('subscribeStep');
   const addContactStep = document.getElementById('addContactStep');
   const readyStrip = document.getElementById('readyStrip');
+  const manageSubBtn = document.getElementById('manageSubBtn');
 
   // Reflects subscriptionStatus in the Subscribe button. Called after
   // user-data loads (verified users) and once up front for unverified
@@ -899,6 +903,14 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
     } else {
       readyStrip.style.display = 'none';
     }
+
+    // Any account with a real active Stripe subscription can manage it —
+    // including a founding user who also happens to have a genuine paid
+    // subscription (e.g. Robert, who is both). foundingUser alone never
+    // implies a Stripe customer exists, so this doesn't need an extra
+    // isFoundingUser check: sisters without a real subscription simply
+    // won't have subscriptionStatus === 'active' in the first place.
+    manageSubBtn.style.display = (subscriptionStatus === 'active') ? 'inline' : 'none';
 
     const unlocked = subscribed && hasContact;
     pressBtn.disabled = !unlocked;
@@ -1308,6 +1320,32 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
       updateSubscribeButtonUI();
     }
   }
+
+  // --- Manage subscription (Stripe Customer Portal) ---
+  async function startPortalSession() {
+    manageSubBtn.disabled = true;
+    manageSubBtn.textContent = 'Loading...';
+    try {
+      const res = await fetch('/.netlify/functions/create-portal-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert('Something went wrong opening your subscription settings. Try again.');
+        manageSubBtn.disabled = false;
+        manageSubBtn.textContent = 'Manage subscription';
+      }
+    } catch (err) {
+      alert('Something went wrong. Check your connection and try again.');
+      manageSubBtn.disabled = false;
+      manageSubBtn.textContent = 'Manage subscription';
+    }
+  }
+  manageSubBtn.addEventListener('click', startPortalSession);
 
   if (subscribeBtn) {
     subscribeBtn.addEventListener('click', async () => {
