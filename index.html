@@ -893,7 +893,12 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
 
     subscribeStep.style.display = subscribed ? 'none' : 'block';
     addContactStep.style.display = (subscribed && !hasContact) ? 'block' : 'none';
-    readyStrip.style.display = (subscribed && hasContact) ? 'block' : 'none';
+    if (subscribed && hasContact) {
+      readyStrip.textContent = isFoundingUser ? 'Founding member ✓ — no charge, ever' : "You're all set ✓";
+      readyStrip.style.display = 'block';
+    } else {
+      readyStrip.style.display = 'none';
+    }
 
     const unlocked = subscribed && hasContact;
     pressBtn.disabled = !unlocked;
