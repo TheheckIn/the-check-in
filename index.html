@@ -967,7 +967,7 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
     try {
       await fetch(`/.netlify/functions/user-data?userId=${encodeURIComponent(userId)}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-App-Secret': APP_SECRET },
         body: JSON.stringify({ contacts, ownerName }),
       });
     } catch (err) {
@@ -977,7 +977,9 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
 
   async function loadUserData() {
     try {
-      const res = await fetch(`/.netlify/functions/user-data?userId=${encodeURIComponent(userId)}`);
+      const res = await fetch(`/.netlify/functions/user-data?userId=${encodeURIComponent(userId)}`, {
+        headers: { 'X-App-Secret': APP_SECRET },
+      });
       const data = await res.json();
       contacts = data.contacts || [];
       ownerName = data.ownerName || '';
