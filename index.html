@@ -671,6 +671,52 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
     return new Date(ts).toLocaleDateString('en-CA', { timeZone: RESET_TIMEZONE });
   }
 
+  // --- Phone verification keys (declared early: referenced by the cookie
+  // fallback below, which runs before the rest of the verification code) ---
+  const PHONE_VERIFIED_KEY = 'checkinPhoneVerified';
+  const VERIFIED_PHONE_KEY = 'checkinVerifiedPhone';
+
+  // --- Cookie fallback (survives some localStorage eviction on iOS PWAs) ---
+  // iOS/WebKit will sometimes clear localStorage for installed home-screen
+  // apps that go unused overnight — this wipes checkinUserId/checkinPhoneVerified
+  // even though the account is completely intact server-side. A cookie is a
+  // separate storage mechanism with its own (generally longer/different)
+  // eviction behavior, so we mirror the verified state into one and use it
+  // to silently self-heal localStorage on load instead of showing the full
+  // verify gate again.
+  const VERIFIED_COOKIE = 'checkinVerified';
+  const COOKIE_MAX_AGE_DAYS = 365;
+
+  function setVerifiedCookie(uid, phone) {
+    const value = encodeURIComponent(JSON.stringify({ userId: uid, phone: phone }));
+    const maxAge = COOKIE_MAX_AGE_DAYS * 24 * 60 * 60;
+    document.cookie = `${VERIFIED_COOKIE}=${value}; max-age=${maxAge}; path=/; SameSite=Lax`;
+  }
+
+  function readVerifiedCookie() {
+    const match = document.cookie.match(new RegExp('(?:^|; )' + VERIFIED_COOKIE + '=([^;]*)'));
+    if (!match) return null;
+    try {
+      return JSON.parse(decodeURIComponent(match[1]));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // If localStorage lost its verification flag but the cookie still has it,
+  // restore localStorage from the cookie. This does NOT re-run OTP — the
+  // cookie is only ever written right after a real verification succeeded,
+  // so it's treated as equivalent proof, not a new credential.
+  function restoreVerificationFromCookieIfNeeded() {
+    if (localStorage.getItem(PHONE_VERIFIED_KEY) === 'true') return;
+    const cookie = readVerifiedCookie();
+    if (cookie && cookie.userId && cookie.phone) {
+      localStorage.setItem('checkinUserId', cookie.userId);
+      localStorage.setItem(PHONE_VERIFIED_KEY, 'true');
+      localStorage.setItem(VERIFIED_PHONE_KEY, cookie.phone);
+    }
+  }
+
   // --- User identity (ties each phone/browser to its saved data) ---
   function getUserId() {
     let id = localStorage.getItem('checkinUserId');
@@ -680,11 +726,10 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
     }
     return id;
   }
+  restoreVerificationFromCookieIfNeeded();
   const userId = getUserId();
 
   // --- Phone verification (identity recovery layer) ---
-  const PHONE_VERIFIED_KEY = 'checkinPhoneVerified';
-  const VERIFIED_PHONE_KEY = 'checkinVerifiedPhone';
   // Set just before showing the verify gate from a specific action (e.g.
   // "subscribe") so that once verification completes and the page reloads,
   // we know to automatically resume that action instead of just landing
@@ -805,6 +850,7 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
       localStorage.setItem('checkinUserId', result.userId);
       localStorage.setItem(PHONE_VERIFIED_KEY, 'true');
       localStorage.setItem(VERIFIED_PHONE_KEY, result.phone);
+      setVerifiedCookie(result.userId, result.phone);
       window.location.reload();
     } catch (err) {
       verifyCodeError.textContent = 'Network error. Check your connection and try again.';
