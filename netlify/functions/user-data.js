@@ -10,7 +10,19 @@ function getConfiguredStore(name) {
     token: process.env.NETLIFY_API_TOKEN,
   });
 }
+
+// Same shared secret used by send-optin.js / send-checkin.js. Blocks
+// anyone who didn't load the real app page (and therefore doesn't have
+// this value) from reading or overwriting another user's data by
+// guessing/leaking a userId.
+const APP_SECRET = 'd24a994e38134d02da9f2e877b019f6b67236a766185b1bc03689cf838735e86';
+
 exports.handler = async (event) => {
+  const providedSecret = event.headers['x-app-secret'] || event.headers['X-App-Secret'];
+  if (providedSecret !== APP_SECRET) {
+    return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized.' }) };
+  }
+
   const store = getConfiguredStore('checkin-users');
   const userId = event.queryStringParameters && event.queryStringParameters.userId;
   if (!userId) {
@@ -39,12 +51,9 @@ exports.handler = async (event) => {
     } catch (e) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON body.' }) };
     }
-    // IMPORTANT: merge onto the existing record instead of replacing it.
-    // The frontend only ever sends { contacts, ownerName } here — a plain
-    // overwrite would silently wipe server-only fields like foundingUser
-    // and subscriptionStatus every time someone edits their contacts or
-    // name. Reading the existing record first and spreading the new
-    // payload on top preserves everything the frontend doesn't know about.
+    // Merge onto the existing record instead of replacing it, so
+    // server-only fields like foundingUser/subscriptionStatus survive
+    // every contact/name edit.
     const existing = (await store.get(userId, { type: 'json' })) || {};
     const merged = { ...existing, ...payload };
     await store.setJSON(userId, merged);
