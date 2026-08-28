@@ -37,11 +37,13 @@ exports.handler = async (event) => {
   const { TWILIO_AUTH_TOKEN, TWILIO_WEBHOOK_URL } = process.env;
   if (!TWILIO_AUTH_TOKEN || !TWILIO_WEBHOOK_URL) {
     // Fail closed: if we can't verify, we don't process.
+    console.error('[sms-webhook] Missing TWILIO_AUTH_TOKEN or TWILIO_WEBHOOK_URL env vars.');
     return { statusCode: 500, body: 'Webhook not configured.' };
   }
 
   const twilioSignature = event.headers['x-twilio-signature'];
   if (!twilioSignature) {
+    console.warn('[sms-webhook] Request missing X-Twilio-Signature header.');
     return { statusCode: 403, body: 'Missing signature.' };
   }
 
@@ -53,11 +55,14 @@ exports.handler = async (event) => {
 
   const isValid = validateTwilioSignature(TWILIO_AUTH_TOKEN, twilioSignature, TWILIO_WEBHOOK_URL, paramsObject);
   if (!isValid) {
+    console.warn('[sms-webhook] Signature validation FAILED. Request rejected.');
     return { statusCode: 403, body: 'Invalid signature.' };
   }
 
   const from = normalizePhone(params.get('From'));
   const body = (params.get('Body') || '').trim().toUpperCase();
+
+  console.log(`[sms-webhook] Inbound message. rawFrom="${params.get('From')}" normalizedFrom="${from}" body="${body}"`);
 
   // Only act on an explicit YES. Anything else (including STOP/HELP, which
   // Twilio intercepts before this function even runs) gets no reply here.
@@ -65,37 +70,66 @@ exports.handler = async (event) => {
     const pendingStore = getConfiguredStore('checkin-pending-optins');
     const pending = (await pendingStore.get(from, { type: 'json' })) || [];
 
+    console.log(`[sms-webhook] Looked up pending optins for "${from}": ${JSON.stringify(pending)}`);
+
     if (pending.length > 0) {
       const usersStore = getConfiguredStore('checkin-users');
+      let anyMatched = false;
 
       await Promise.all(
         pending.map(async (entry) => {
+          console.log(`[sms-webhook] Checking pending entry userId="${entry.userId}" name="${entry.name}"`);
+
           const data = await usersStore.get(entry.userId, { type: 'json' });
-          if (!data || !Array.isArray(data.contacts)) return;
+          if (!data || !Array.isArray(data.contacts)) {
+            console.warn(`[sms-webhook] No user data (or no contacts array) found for userId="${entry.userId}". Skipping.`);
+            return;
+          }
+
+          console.log(`[sms-webhook] userId="${entry.userId}" has contacts: ${JSON.stringify(data.contacts.map(c => ({ name: c.name, phone: c.phone, status: c.status })))}`);
 
           let changed = false;
           data.contacts = data.contacts.map((c) => {
-            if (normalizePhone(c.phone) === from && c.status !== 'confirmed') {
+            const normalized = normalizePhone(c.phone);
+            const matches = normalized === from;
+            console.log(`[sms-webhook]   comparing contact "${c.name}" phone="${c.phone}" normalized="${normalized}" against from="${from}" -> ${matches ? 'MATCH' : 'no match'} (current status: ${c.status})`);
+            if (matches && c.status !== 'confirmed') {
               changed = true;
+              anyMatched = true;
               return { ...c, status: 'confirmed' };
+            }
+            if (matches) {
+              // Matched, but was already confirmed — still counts as "found".
+              anyMatched = true;
             }
             return c;
           });
 
           if (changed) {
+            console.log(`[sms-webhook] Writing updated contacts back for userId="${entry.userId}".`);
             await usersStore.setJSON(entry.userId, data);
+          } else {
+            console.log(`[sms-webhook] No change needed for userId="${entry.userId}" (no matching unconfirmed contact found).`);
           }
         })
       );
 
+      if (!anyMatched) {
+        console.error(`[sms-webhook] WARNING: pending list for "${from}" was non-empty but NO contact in ANY pending user's data matched this number. Status was NOT updated for anyone, yet the pending list is about to be cleared.`);
+      }
+
       // Clear the pending list now that everyone waiting on this number is resolved.
+      console.log(`[sms-webhook] Clearing pending optins for "${from}".`);
       await pendingStore.delete(from);
+    } else {
+      console.warn(`[sms-webhook] No pending optin record found for "${from}". Nothing to confirm — but still sending the "confirmed" reply text.`);
     }
 
     return twiml("You're confirmed! You'll now receive check-in alerts. Reply STOP anytime to opt out.");
   }
 
   // No reply for anything else — avoids echoing random texts back at people.
+  console.log(`[sms-webhook] Message did not match YES handling (from="${from}" body="${body}"). No action taken.`);
   return twiml('');
 };
 
