@@ -1001,7 +1001,16 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
     document.getElementById(id).classList.add('active');
   }
 
-  settingsBtn.addEventListener('click', () => { renderContacts(); showScreen('contactsScreen'); });
+  // Re-fetch fresh data from the server every time Contacts is opened,
+  // instead of just re-drawing whatever was already sitting in memory.
+  // Without this, a contact's status (e.g. Pending -> Confirmed after
+  // they reply YES from their phone) never shows up here until the whole
+  // page is fully reloaded — even though the backend already has the
+  // correct, current status the entire time.
+  settingsBtn.addEventListener('click', async () => {
+    await loadUserData();
+    showScreen('contactsScreen');
+  });
   addFirstContactBtn.addEventListener('click', () => {
     if (!isPhoneVerified()) { showVerifyGate(); return; }
     renderContacts();
