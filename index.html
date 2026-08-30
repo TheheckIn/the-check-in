@@ -745,12 +745,6 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
   const userId = getUserId();
 
   // --- Phone verification (identity recovery layer) ---
-  // Set just before showing the verify gate from a specific action (e.g.
-  // "subscribe") so that once verification completes and the page reloads,
-  // we know to automatically resume that action instead of just landing
-  // back on the home screen.
-  const PENDING_ACTION_KEY = 'checkinPendingAction';
-
   const verifyOverlay = document.getElementById('verifyOverlay');
   const verifyStepPhone = document.getElementById('verifyStepPhone');
   const verifyStepCode = document.getElementById('verifyStepCode');
@@ -1463,15 +1457,7 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
   // to add a contact, press "I'm OK", or subscribe — the moments that
   // genuinely need an identity tied to a phone number.
   if (isPhoneVerified()) {
-    loadUserData().then(() => {
-      const pending = sessionStorage.getItem(PENDING_ACTION_KEY);
-      if (pending) {
-        sessionStorage.removeItem(PENDING_ACTION_KEY);
-        if (pending === 'subscribe' && !isFoundingUser && subscriptionStatus !== 'active') {
-          startCheckout();
-        }
-      }
-    });
+    loadUserData();
   } else {
     updateSubscribeButtonUI();
     renderOnboarding();
