@@ -65,8 +65,22 @@
 <body>
   <div class="card">
     <h1>You're all set!</h1>
-    <p>Your subscription to The Check In is active. We'll keep watching out for you.</p>
-    <a href="/">Back to The Check In</a>
+    <p>Your subscription to The Check In is active. Just one more step — let's get your phone number so we know where to send your check-ins.</p>
+    <a href="/?justSubscribed=1">Continue</a>
   </div>
+  <script>
+    // Belt-and-suspenders flag, set the moment payment succeeds — not just
+    // a URL param. If someone closes this tab before the redirect below
+    // fires (or before tapping Continue) and comes back to the app later
+    // directly, index.html still needs to know they already paid, or its
+    // Subscribe button will show as clickable again and risk sending an
+    // already-paying customer through Stripe Checkout a second time.
+    try { localStorage.setItem('checkinJustSubscribed', '1'); } catch (e) {}
+
+    // Auto-advance after a moment so most people don't have to tap at all.
+    setTimeout(function () {
+      window.location.href = '/?justSubscribed=1';
+    }, 2500);
+  </script>
 </body>
 </html>
