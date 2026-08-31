@@ -971,6 +971,21 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
     const unlocked = subscribed && hasContact;
     pressBtn.disabled = !unlocked;
     pressBtn.classList.toggle('locked', !unlocked);
+
+    // NEW: keep the copy above the button honest while it's locked. The
+    // button is a real disabled <button>, so a tap fires no click event
+    // at all — to a first-time visitor that reads as broken, not
+    // "not active yet," especially since the old copy ("Press the
+    // button to let your people know you're okay") never changed to
+    // reflect the locked state. This only touches statusLine while
+    // locked; renderStatus() still owns it once unlocked (checked-in
+    // banners, daily-limit messaging, etc. are untouched).
+    if (!unlocked) {
+      statusBanner.classList.remove('show');
+      statusLine.textContent = subscribed
+        ? "Add a contact above to activate your check-in button."
+        : "Subscribe above to activate your check-in button.";
+    }
   }
 
   async function saveUserData() {
