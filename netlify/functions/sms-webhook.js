@@ -72,60 +72,82 @@ exports.handler = async (event) => {
 
     console.log(`[sms-webhook] Looked up pending optins for "${from}": ${JSON.stringify(pending)}`);
 
-    if (pending.length > 0) {
-      const usersStore = getConfiguredStore('checkin-users');
-      let anyMatched = false;
-
-      await Promise.all(
-        pending.map(async (entry) => {
-          console.log(`[sms-webhook] Checking pending entry userId="${entry.userId}" name="${entry.name}"`);
-
-          const data = await usersStore.get(entry.userId, { type: 'json' });
-          if (!data || !Array.isArray(data.contacts)) {
-            console.warn(`[sms-webhook] No user data (or no contacts array) found for userId="${entry.userId}". Skipping.`);
-            return;
-          }
-
-          console.log(`[sms-webhook] userId="${entry.userId}" has contacts: ${JSON.stringify(data.contacts.map(c => ({ name: c.name, phone: c.phone, status: c.status })))}`);
-
-          let changed = false;
-          data.contacts = data.contacts.map((c) => {
-            const normalized = normalizePhone(c.phone);
-            const matches = normalized === from;
-            console.log(`[sms-webhook]   comparing contact "${c.name}" phone="${c.phone}" normalized="${normalized}" against from="${from}" -> ${matches ? 'MATCH' : 'no match'} (current status: ${c.status})`);
-            if (matches && c.status !== 'confirmed') {
-              changed = true;
-              anyMatched = true;
-              return { ...c, status: 'confirmed' };
-            }
-            if (matches) {
-              // Matched, but was already confirmed — still counts as "found".
-              anyMatched = true;
-            }
-            return c;
-          });
-
-          if (changed) {
-            console.log(`[sms-webhook] Writing updated contacts back for userId="${entry.userId}".`);
-            await usersStore.setJSON(entry.userId, data);
-          } else {
-            console.log(`[sms-webhook] No change needed for userId="${entry.userId}" (no matching unconfirmed contact found).`);
-          }
-        })
-      );
-
-      if (!anyMatched) {
-        console.error(`[sms-webhook] WARNING: pending list for "${from}" was non-empty but NO contact in ANY pending user's data matched this number. Status was NOT updated for anyone, yet the pending list is about to be cleared.`);
-      }
-
-      // Clear the pending list now that everyone waiting on this number is resolved.
-      console.log(`[sms-webhook] Clearing pending optins for "${from}".`);
-      await pendingStore.delete(from);
-    } else {
-      console.warn(`[sms-webhook] No pending optin record found for "${from}". Nothing to confirm — but still sending the "confirmed" reply text.`);
+    if (pending.length === 0) {
+      // Nothing was ever sent to this exact number — either no one has
+      // added them yet, or (very likely, based on real incidents) whoever
+      // added them typed in a different/wrong number, so the original
+      // opt-in text went somewhere else entirely and this person never
+      // saw it. Previously this replied "You're confirmed!" anyway, which
+      // was actively misleading — this person confirmed nothing.
+      console.warn(`[sms-webhook] No pending optin record found for "${from}". Nothing to confirm.`);
+      return twiml("We don't have a pending check-in request for this number. Ask whoever added you to double-check the number they have on file and resend the request, then reply YES again.");
     }
 
-    return twiml("You're confirmed! You'll now receive check-in alerts. Reply STOP anytime to opt out.");
+    const usersStore = getConfiguredStore('checkin-users');
+    const matchedEntries = [];
+    const unmatchedEntries = [];
+
+    await Promise.all(
+      pending.map(async (entry) => {
+        console.log(`[sms-webhook] Checking pending entry userId="${entry.userId}" name="${entry.name}"`);
+
+        const data = await usersStore.get(entry.userId, { type: 'json' });
+        if (!data || !Array.isArray(data.contacts)) {
+          console.warn(`[sms-webhook] No user data (or no contacts array) found for userId="${entry.userId}". Skipping.`);
+          unmatchedEntries.push(entry);
+          return;
+        }
+
+        console.log(`[sms-webhook] userId="${entry.userId}" has contacts: ${JSON.stringify(data.contacts.map(c => ({ name: c.name, phone: c.phone, status: c.status })))}`);
+
+        let matchedThisUser = false;
+        let changed = false;
+        data.contacts = data.contacts.map((c) => {
+          const normalized = normalizePhone(c.phone);
+          const matches = normalized === from;
+          console.log(`[sms-webhook]   comparing contact "${c.name}" phone="${c.phone}" normalized="${normalized}" against from="${from}" -> ${matches ? 'MATCH' : 'no match'} (current status: ${c.status})`);
+          if (matches) {
+            matchedThisUser = true;
+            if (c.status !== 'confirmed') {
+              changed = true;
+              return { ...c, status: 'confirmed' };
+            }
+          }
+          return c;
+        });
+
+        if (changed) {
+          console.log(`[sms-webhook] Writing updated contacts back for userId="${entry.userId}".`);
+          await usersStore.setJSON(entry.userId, data);
+        } else {
+          console.log(`[sms-webhook] No change needed for userId="${entry.userId}" (${matchedThisUser ? 'already confirmed' : 'no matching contact found'}).`);
+        }
+
+        (matchedThisUser ? matchedEntries : unmatchedEntries).push(entry);
+      })
+    );
+
+    if (matchedEntries.length > 0) {
+      // Only clear the requests we actually resolved. Anything unmatched
+      // stays in the pending list — it's a real mismatch worth being able
+      // to trace later, not something to silently erase.
+      if (unmatchedEntries.length > 0) {
+        console.warn(`[sms-webhook] Partial match for "${from}": resolved ${matchedEntries.length}, leaving ${unmatchedEntries.length} unmatched entries in place.`);
+        await pendingStore.setJSON(from, unmatchedEntries);
+      } else {
+        console.log(`[sms-webhook] Clearing pending optins for "${from}" (fully resolved).`);
+        await pendingStore.delete(from);
+      }
+      return twiml("You're confirmed! You'll now receive check-in alerts. Reply STOP anytime to opt out.");
+    }
+
+    // Pending entries existed for this number, but not one of them matched
+    // a contact on file — almost always means the number on the requester's
+    // side doesn't match this phone (a typo, or home vs. mobile). Leave the
+    // pending record in place (in case it gets corrected and re-checked
+    // later) and tell the person the truth instead of "You're confirmed!"
+    console.error(`[sms-webhook] WARNING: pending list for "${from}" was non-empty but NO entry matched. Nothing confirmed.`);
+    return twiml("We got your YES, but couldn't match it to a pending request — the number on file for you may be different from this one. Ask them to double-check it and resend.");
   }
 
   // No reply for anything else — avoids echoing random texts back at people.
