@@ -382,6 +382,7 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
   }
   .contact-info .name { font-weight: 700; font-size: 17px; }
   .contact-info .phone { color: var(--ink-soft); font-size: 15px; }
+  .contact-info .sent-time { color: var(--gray); font-size: 13px; margin-top: 2px; }
   .contact-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
   .status-badge {
     display: inline-block;
@@ -675,7 +676,7 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
   // a purely client-side app — but it still blocks random bots/scanners that
   // never load the page at all.
   const APP_SECRET = 'd24a994e38134d02da9f2e877b019f6b67236a766185b1bc03689cf838735e86';
-  const PENDING_TIMEOUT_MS = 48 * 60 * 60 * 1000; // 48 hours
+  const PENDING_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes (was 48 hours — too long for same-day testing/re-sends; a real reply almost always lands within minutes anyway)
   const RESET_TIMEZONE = 'America/New_York';
   const MAX_SENDS_PER_DAY = 3;
 
@@ -1066,16 +1067,36 @@ src="https://www.facebook.com/tr?id=1052017694346305&ev=PageView&noscript=1"
     return { label: 'Pending', className: 'pending', showResend: false };
   }
 
+  // Turns a timestamp into a short "sent X ago" string so it's obvious at a
+  // glance how stale a Pending/No response contact actually is, instead of
+  // an unexplained badge that looks identical whether it's been 2 minutes
+  // or 2 weeks. Only shown for non-final states (nothing to say once
+  // someone's actually Confirmed or Declined).
+  function formatSentAgo(ms) {
+    if (!ms) return null;
+    const diff = Date.now() - ms;
+    if (diff < 60 * 1000) return 'Sent just now';
+    const mins = Math.floor(diff / (60 * 1000));
+    if (mins < 60) return `Sent ${mins} min${mins === 1 ? '' : 's'} ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `Sent ${hours} hour${hours === 1 ? '' : 's'} ago`;
+    const days = Math.floor(hours / 24);
+    return `Sent ${days} day${days === 1 ? '' : 's'} ago`;
+  }
+
   function renderContacts() {
     contactList.innerHTML = '';
     contacts.forEach((c, i) => {
       const info = contactStatusInfo(c);
+      const showSentTime = c.status !== 'confirmed' && c.status !== 'declined';
+      const sentTimeText = showSentTime ? formatSentAgo(c.optInSentAt) : null;
       const row = document.createElement('div');
       row.className = 'contact-row';
       row.innerHTML = `
         <div class="contact-info">
           <div class="name">${escapeHtml(c.name)}</div>
           <div class="phone">${escapeHtml(c.phone)}</div>
+          ${sentTimeText ? `<div class="sent-time">${escapeHtml(sentTimeText)}</div>` : ''}
         </div>
         <div class="contact-actions">
           <span class="status-badge ${info.className}">${info.label}</span>
