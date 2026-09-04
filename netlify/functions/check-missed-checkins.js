@@ -74,13 +74,17 @@ exports.handler = schedule('0 * * * *', async (event) => {
   const usersStore = getConfiguredStore('checkin-users');
   const sendLogStore = getConfiguredStore('checkin-send-log');
   const missedAlertsStore = getConfiguredStore('checkin-missed-alerts');
+  // Tracks the last time we nagged an owner about having zero confirmed
+  // contacts, so we don't text them every single hour — see below.
+  const noContactNagsStore = getConfiguredStore('checkin-no-contacts-nags');
 
   const now = Date.now();
   const thresholdMs = MISSED_THRESHOLD_HOURS * 60 * 60 * 1000;
+  const NAG_INTERVAL_MS = 24 * 60 * 60 * 1000; // don't nag more than once/day
 
   const { blobs } = await usersStore.list();
 
-  const summary = { checked: 0, skippedNoHistory: 0, alreadyAlerted: 0, alerted: 0, errors: 0 };
+  const summary = { checked: 0, skippedNoHistory: 0, alreadyAlerted: 0, alerted: 0, errors: 0, noConfirmedContacts: 0, noContactsNagSent: 0 };
 
   for (const { key: userId } of blobs) {
     summary.checked += 1;
@@ -89,7 +93,52 @@ exports.handler = schedule('0 * * * *', async (event) => {
       if (!userData || !Array.isArray(userData.contacts)) continue;
 
       const confirmedContacts = userData.contacts.filter((c) => c.status === 'confirmed');
-      if (confirmedContacts.length === 0) continue;
+      if (confirmedContacts.length === 0) {
+        // Nobody's confirmed, which means if this person actually missed a
+        // check-in right now, literally no one would be alerted — a silent
+        // gap in the app's core promise. Previously this was an invisible
+        // `continue` with no visibility anywhere. Now it's counted, and the
+        // owner themselves gets a throttled (max once/day) nag SMS so they
+        // know they're currently unprotected, instead of finding out the
+        // hard way.
+        summary.noConfirmedContacts += 1;
+        try {
+          if (userData.ownerPhone) {
+            const lastNag = await noContactNagsStore.get(userId, { type: 'json' });
+            const dueForNag = !lastNag || (now - lastNag.nagSentAt) > NAG_INTERVAL_MS;
+            if (dueForNag) {
+              const ownerToNumber = normalizePhone(userData.ownerPhone);
+              if (ownerToNumber) {
+                const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
+                const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
+                const params = new URLSearchParams({
+                  To: ownerToNumber,
+                  From: TWILIO_PHONE_NUMBER,
+                  Body: "The Check In: none of your contacts have confirmed yet, so no one would be alerted if you missed a check-in. Open the app and check your Contacts screen.",
+                });
+                const res = await fetch(url, {
+                  method: 'POST',
+                  headers: {
+                    Authorization: `Basic ${auth}`,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                  },
+                  body: params.toString(),
+                });
+                if (res.ok) {
+                  await noContactNagsStore.setJSON(userId, { nagSentAt: now });
+                  summary.noContactsNagSent += 1;
+                } else {
+                  const data = await res.json().catch(() => ({}));
+                  console.error(`No-confirmed-contacts nag failed for user ${userId}:`, data.message || res.status);
+                }
+              }
+            }
+          }
+        } catch (nagErr) {
+          console.error(`Error sending no-confirmed-contacts nag for user ${userId}:`, nagErr);
+        }
+        continue;
+      }
 
       const sendHistory = (await sendLogStore.get(userId, { type: 'json' })) || [];
       if (sendHistory.length === 0) {
