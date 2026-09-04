@@ -105,24 +105,35 @@ exports.handler = async (event) => {
     await indexStore.set(phone, userId);
   }
 
-  // If this phone belongs to a founding user, make sure their account is
-  // permanently flagged — merge into whatever record already exists rather
-  // than overwriting it, so contacts/history are never touched.
-  if (FOUNDING_USER_PHONES.has(phone)) {
-    const usersStore = getStore({
-      name: 'checkin-users',
-      siteID: process.env.NETLIFY_SITE_ID,
-      token: process.env.NETLIFY_API_TOKEN,
-    });
-    const existingData = (await usersStore.get(userId, { type: 'json' })) || {
-      contacts: [],
-      checkInHour: 9,
-      checkInMinute: 0,
-    };
-    if (!existingData.foundingUser) {
-      existingData.foundingUser = true;
-      await usersStore.setJSON(userId, existingData);
-    }
+  // Persist the owner's own verified phone number on their record (merging
+  // into whatever already exists, never overwriting contacts/history), plus
+  // the founding-user flag when it applies. Every verified user gets
+  // ownerPhone stored here — not just founding users — because it's the only
+  // reverse (userId -> phone) lookup in the system; checkin-phone-index only
+  // maps phone -> userId. check-missed-checkins.js needs ownerPhone to be
+  // able to text the owner directly (e.g. to warn them they have zero
+  // confirmed contacts protecting them).
+  const usersStore = getStore({
+    name: 'checkin-users',
+    siteID: process.env.NETLIFY_SITE_ID,
+    token: process.env.NETLIFY_API_TOKEN,
+  });
+  const existingData = (await usersStore.get(userId, { type: 'json' })) || {
+    contacts: [],
+    checkInHour: 9,
+    checkInMinute: 0,
+  };
+  let userRecordChanged = false;
+  if (existingData.ownerPhone !== phone) {
+    existingData.ownerPhone = phone;
+    userRecordChanged = true;
+  }
+  if (FOUNDING_USER_PHONES.has(phone) && !existingData.foundingUser) {
+    existingData.foundingUser = true;
+    userRecordChanged = true;
+  }
+  if (userRecordChanged) {
+    await usersStore.setJSON(userId, existingData);
   }
 
   return {
