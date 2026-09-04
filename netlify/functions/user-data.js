@@ -55,7 +55,42 @@ exports.handler = async (event) => {
     // server-only fields like foundingUser/subscriptionStatus survive
     // every contact/name edit.
     const existing = (await store.get(userId, { type: 'json' })) || {};
-    const merged = { ...existing, ...payload };
+
+    // The client always sends its whole in-memory contacts array on every
+    // save (add/remove/resend/rename), which can be stale relative to the
+    // server if sms-webhook.js confirmed a contact in the meantime (e.g.
+    // someone replied YES between when this device loaded its data and
+    // when it saved). A blind overwrite here would silently revert that
+    // confirmation back to "pending" with no error to anyone.
+    //
+    // Fix: 'confirmed' status is sticky per phone number. If the existing
+    // record already has a contact confirmed at a given number, an
+    // incoming payload for that same number can never downgrade it —
+    // only sms-webhook.js (a real YES reply) is allowed to set the status
+    // in the first place, so the client's copy is never the source of
+    // truth for it. A contact the client genuinely removes just won't be
+    // in payload.contacts at all, which still works as a real removal.
+    let mergedPayload = payload;
+    if (Array.isArray(payload.contacts) && Array.isArray(existing.contacts)) {
+      const confirmedByPhone = new Map();
+      for (const c of existing.contacts) {
+        const norm = normalizePhone(c.phone);
+        if (norm && c.status === 'confirmed') confirmedByPhone.set(norm, c);
+      }
+      mergedPayload = {
+        ...payload,
+        contacts: payload.contacts.map((c) => {
+          const norm = normalizePhone(c.phone);
+          if (norm && confirmedByPhone.has(norm) && c.status !== 'confirmed') {
+            console.warn(`[user-data] Preventing stale downgrade of confirmed contact phone="${norm}" for userId="${userId}" (client sent status="${c.status}").`);
+            return { ...c, status: 'confirmed' };
+          }
+          return c;
+        }),
+      };
+    }
+
+    const merged = { ...existing, ...mergedPayload };
     await store.setJSON(userId, merged);
     return {
       statusCode: 200,
@@ -65,3 +100,14 @@ exports.handler = async (event) => {
   }
   return { statusCode: 405, body: 'Method Not Allowed' };
 };
+
+// Converts a loosely formatted US number like "(765) 555-0142" into E.164 format "+17655550142"
+// Kept in sync with the same helper in send-optin.js and sms-webhook.js.
+function normalizePhone(raw) {
+  if (!raw) return null;
+  const digits = raw.replace(/[^\d+]/g, '');
+  if (digits.startsWith('+')) return digits;
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  return null;
+}
